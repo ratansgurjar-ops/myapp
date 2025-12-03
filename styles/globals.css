@@ -1,0 +1,74 @@
+:root {
+  --bg-start: #e6f0ff;
+  --bg-end: #f7fbff;
+  --primary: #0b66c2;
+  --text: #0b2340;
+}
+
+[data-theme='dark'] {
+  --bg-start: #0b1724;
+  --bg-end: #071127;
+  --primary: #1e90ff;
+  --text: #e6eef9;
+}
+
+html,body,#__next {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, Arial, sans-serif;
+  color: var(--text);
+  background: linear-gradient(180deg, var(--bg-start), var(--bg-end));
+}
+
+/* Responsive layout tweaks */
+.layout { display: flex; gap: 20px; padding: 20px; }
+.layout main { flex: 1; }
+.layout aside { width: 320px; display: flex; flex-direction: column; gap: 12px; }
+
+@media (max-width: 768px) {
+  .layout { flex-direction: column; padding: 12px; }
+  .layout aside { width: 100%; order: 2; }
+  .layout main { order: 1; }
+  main { padding: 12px !important; }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  main { padding: 16px !important; }
+  .layout aside { width: 280px; }
+}
+
+/* Header styles */
+.site-header {
+  width: 100%;
+  background: linear-gradient(90deg,#0b66c2,#4fb3ff);
+  color: white;
+  padding: 36px 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+}
+.site-header .header-inner { display:flex; justify-content:center; align-items:center; flex-direction:column; text-align:center; }
+.site-header h1 { margin: 0; font-size: 36px; line-height: 1.05; font-weight: 700; }
+.site-header p.lead { margin: 8px 0 0; font-size: 18px; }
+.site-header p.sub { margin: 8px 0 0; font-size: 15px; color: #f0f9ff; }
+
+@media (max-width: 768px) {
+  .site-header { padding: 20px 12px; }
+  .site-header h1 { font-size: 22px; }
+  .site-header p.lead { font-size: 14px; }
+  .site-header p.sub { font-size: 12px; }
+}
+
+/* Set a CSS variable for header height and offset the main layout so header doesn't overlap content */
+:root { --site-header-height: 140px; }
+@media (max-width: 768px) { :root { --site-header-height: 110px; } }
+
+.layout { padding-top: calc(var(--site-header-height) + 20px); }
+
+/* Simple utilities */
+.container { max-width: 1200px; margin: 0 auto; padding-left: 12px; padding-right: 12px; }

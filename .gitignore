@@ -1,0 +1,47 @@
+# Node modules
+node_modules/
+
+# Env files
+.env
+.env.*
+
+# Next.js build output
+.next/
+out/
+build/
+
+# Vercel
+.vercel/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+
+# Editor directories
+.vscode/
+.idea/
+
+# Coverage and cache
+coverage/
+.cache/
+
+# Misc
+dist/
+public/uploads/
+# Frontend-specific ignores
+.next/
+node_modules/
+dist/
+build/
+frontend/.env.local
+/.env.local
+.DS_Store
+node_modules/
+.next/
+.env
+dist/
+*.log

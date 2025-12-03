@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /api/
+
+# Allow everything else
+Allow: /
+
+Sitemap: https://studygkhub.com/sitemap.xml
+User-agent: *
+Disallow:
+Sitemap: %sitemap%

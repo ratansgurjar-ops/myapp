@@ -1,0 +1,13 @@
+# Frontend-specific ignores
+.next/
+node_modules/
+dist/
+build/
+frontend/.env.local
+/.env.local
+.DS_Store
+node_modules/
+.next/
+.env
+dist/
+*.log
