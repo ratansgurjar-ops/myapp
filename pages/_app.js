@@ -1,8 +1,11 @@
 import '../styles/globals.css';
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+import SiteHeader from '../components/SiteHeader';
 
 function MyApp({ Component, pageProps }) {
   const [theme, setTheme] = useState('light');
+  const router = useRouter();
 
   useEffect(() => {
     try {
@@ -27,8 +30,12 @@ function MyApp({ Component, pageProps }) {
     }
   }, []);
 
+  // Determine admin routes from router.pathname so server and client render the same
+  const isAdminRoute = (router && router.pathname && (router.pathname.startsWith('/admin') || router.pathname.startsWith('/ad81188')));
+
   return (
     <div>
+      {!isAdminRoute && <SiteHeader />}
       <div style={{ position: 'fixed', right: 12, top: 12 }}>
         <button onClick={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}>{theme === 'light' ? 'Dark' : 'Light'}</button>
       </div>

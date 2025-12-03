@@ -29,8 +29,8 @@ export default function QuestionCard({ item, displayLang: displayLangProp }) {
   };
 
   return (
-    <div style={{ border: '1px solid #eee', padding: 12, marginBottom: 12, borderRadius: 6, display: 'flex' }}>
-      <div style={{ flex: 1 }}>
+    <div className="question-card" style={{ border: '1px solid #eee', padding: 12, marginBottom: 12, borderRadius: 6 }}>
+      <div className="qc-main" style={{ flex: 1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ flex: 1 }}>
             {displayLang === 'both' ? (
@@ -87,7 +87,7 @@ export default function QuestionCard({ item, displayLang: displayLangProp }) {
         )}
       </div>
 
-      <div style={{ width: 220, marginLeft: 12 }}>
+      <div className="qc-right" style={{ width: 220, marginLeft: 12 }}>
         <div style={{ fontSize: 13, marginBottom: 6 }}>Reviews ({item.feedback_count || 0})</div>
         <div>
           <button onClick={() => setFeedbackOpen((s) => !s)} style={{ marginBottom: 8 }}>{feedbackOpen ? 'Close' : 'Write Review'}</button>

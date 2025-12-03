@@ -45,20 +45,25 @@ body {
   width: 100%;
   background: linear-gradient(90deg,#0b66c2,#4fb3ff);
   color: white;
-  padding: 36px 0;
+  padding: 8px 0; /* compact header */
+  box-sizing: border-box;
+  height: var(--site-header-height); /* fixed header height */
+  overflow: hidden; /* prevent expansion */
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 9999;
 }
-.site-header .header-inner { display:flex; justify-content:center; align-items:center; flex-direction:column; text-align:center; }
-.site-header h1 { margin: 0; font-size: 36px; line-height: 1.05; font-weight: 700; }
-.site-header p.lead { margin: 8px 0 0; font-size: 18px; }
-.site-header p.sub { margin: 8px 0 0; font-size: 15px; color: #f0f9ff; }
+.site-header .header-inner { display:flex; justify-content:space-between; align-items:center; flex-direction:row; text-align:left; }
+.site-header h1 { margin: 0; font-size: 42px; line-height: 1; font-weight: 900; font-family: Georgia, 'Times New Roman', serif; letter-spacing: 0.6px; color: #fff; text-shadow: 0 2px 6px rgba(3,18,35,0.25); }
+.site-header .header-subtexts { display:flex; flex-direction:column; gap:2px; margin-top:6px; }
+.site-header .header-subtexts .desc { font-size:13px; color: rgba(255,255,255,0.95); font-weight:600; }
+.site-header .header-subtexts .lead { font-size:13px; color: rgba(255,255,255,0.92); }
+.site-header .header-subtexts .hindi { font-size:12px; color: rgba(255,255,255,0.88); font-style: italic; margin-top:2px; }
 
 @media (max-width: 768px) {
-  .site-header { padding: 20px 12px; }
+  .site-header { padding: 12px 8px; }
   .site-header h1 { font-size: 22px; }
   .site-header p.lead { font-size: 14px; }
   .site-header p.sub { font-size: 12px; }
@@ -66,9 +71,72 @@ body {
 
 /* Set a CSS variable for header height and offset the main layout so header doesn't overlap content */
 :root { --site-header-height: 140px; }
-@media (max-width: 768px) { :root { --site-header-height: 110px; } }
+@media (max-width: 768px) { :root { --site-header-height: 100px; } }
 
-.layout { padding-top: calc(var(--site-header-height) + 20px); }
+.layout { /* keep existing layout spacing for inner layout */ }
+
+/* Ensure the entire app content is offset under the fixed header so
+  every page (index, news, typing, admin, etc.) starts below it. */
+#__next { padding-top: calc(var(--site-header-height) + 8px); }
+
+/* Ensure header internals are vertically centered and don't overflow */
+.site-header .header-inner { max-height: 100%; display:flex; align-items:center; justify-content:center; }
+.site-header .hero-inner { width:100%; box-sizing:border-box; }
+
+/* Question card responsive tweaks */
+.question-card { display: flex; gap: 12px; align-items: flex-start; }
+.question-card .qc-main { flex: 1; }
+.question-card .qc-right { width: 220px; margin-left: 12px; flex: 0 0 220px; }
+
+@media (max-width: 768px) {
+  .question-card { flex-direction: column; }
+  .question-card .qc-right { width: 100%; margin-left: 0; order: 2; }
+  .question-card .qc-main { order: 1; }
+}
+
+/* Header button group */
+.header-actions { display:flex; gap:10px; margin-top:12px; justify-content:center; }
+.header-actions button { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.18); color: #fff; padding: 8px 12px; border-radius: 8px; cursor:pointer; font-weight:600; }
+.header-actions button:hover { background: rgba(255,255,255,0.18); }
 
 /* Simple utilities */
 .container { max-width: 1200px; margin: 0 auto; padding-left: 12px; padding-right: 12px; }
+
+/* Pagination styling */
+.pagination { display:flex; gap:8px; align-items:center; justify-content:center; margin-top:12px; }
+.pagination button { background: #fff; border: 1px solid #e6eef8; padding: 8px 12px; border-radius: 10px; cursor: pointer; font-size:14px; color: #0b2340; box-shadow: 0 1px 0 rgba(11,35,64,0.04); }
+.pagination button:hover { background: #f2f8ff; }
+.pagination button.current { background: linear-gradient(90deg,#eaf4ff,#fff); border-color:#bcdffb; font-weight:700; }
+.pagination .ellipsis { padding: 8px 10px; color:#666; font-size:14px; }
+
+@media (max-width: 480px) {
+  .pagination { gap:6px; }
+  .pagination button { padding:6px 8px; font-size:13px; border-radius:8px; }
+}
+
+/* Hero section */
+.hero { padding: 18px 0; background: linear-gradient(180deg, rgba(11,102,194,0.06), rgba(79,179,255,0.02)); }
+.hero-inner { display:flex; gap:24px; align-items:center; justify-content:space-between; }
+.hero-inner { display:flex; gap:24px; align-items:center; justify-content:center; }
+.hero-left { flex:1; max-width:900px; text-align:center; }
+.hero-left h2 { margin:0 0 8px; font-size:28px; color:var(--text); }
+.hero-sub { margin:0 0 16px; color:#fff; font-size:15px; }
+.hero-ctas { display:flex; gap:14px; margin-bottom:8px; justify-content:center; flex-wrap:wrap; }
+.btn { padding:12px 18px; border-radius:12px; border: 1px solid rgba(255,255,255,0.26); background: transparent; cursor:pointer; font-weight:800; color: #fff; font-size:15px; }
+.btn-primary { background: transparent; color: #fff; border-color: rgba(255,255,255,0.32); box-shadow: none; }
+.btn-primary:hover { background: rgba(255,255,255,0.06); }
+.btn-secondary { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.18); }
+.btn-secondary:hover { background: rgba(255,255,255,0.04); }
+.hero-meta { color:#567; font-size:13px; }
+.hero-right { width:220px; text-align:center; }
+.exam-badges { display:flex; flex-direction:column; gap:8px; }
+.badge { display:inline-block; padding:8px 10px; border-radius:8px; background:#fff; border:1px solid #eef5ff; color:var(--primary); font-weight:700; }
+
+@media (max-width: 768px) {
+  .hero-inner { flex-direction:column; align-items:flex-start; }
+  .hero-right { width:100%; order:2; }
+  .hero-left { order:1; }
+  .hero-left h2 { font-size:20px; }
+  .site-header h1 { font-size: 26px; }
+  .site-header .header-subtexts .desc, .site-header .header-subtexts .lead { font-size: 12px; }
+}

@@ -16,14 +16,36 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     const data = req.body;
     if (!data.question_english) return res.status(400).json({ error: 'question_english required' });
-    data.slug = data.slug || slugify(data.question_english, { lower: true, strict: true });
+    // ensure a unique slug: if the generated slug already exists, append a short suffix
+    const baseSlug = data.slug || slugify(data.question_english, { lower: true, strict: true });
+    let finalSlug = baseSlug;
+    try {
+      let counter = 0;
+      // check existing and append counter until unique (prevent race by limited attempts)
+      while (counter < 10) {
+        // require admin session cookie early to allow findBySlug checks to use DB credentials
+        const existing = await Question.findBySlug(finalSlug);
+        if (!existing) break;
+        counter += 1;
+        finalSlug = `${baseSlug}-${Date.now().toString(36).slice(-4)}-${counter}`;
+      }
+    } catch (e) {
+      // ignore and fallback to baseSlug
+      finalSlug = baseSlug;
+    }
+    data.slug = finalSlug;
     // require admin session cookie
     const admin = await verifyAdminSession(req);
     if (!admin) return res.status(401).json({ error: 'unauthorized' });
-
-    const item = await Question.createQuestion(data);
-    res.json({ ok: true, item });
-    return;
+    try {
+      const item = await Question.createQuestion(data);
+      res.json({ ok: true, item });
+      return;
+    } catch (e) {
+      // return DB error message to admin to help debugging (sanitized)
+      console.error('question create error:', e && (e.stack || e.message || e));
+      return res.status(500).json({ error: e && e.message ? e.message : 'database error' });
+    }
   }
 
   res.setHeader('Allow', ['GET', 'POST']);

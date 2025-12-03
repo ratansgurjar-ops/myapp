@@ -334,6 +334,7 @@ export default function AdminDashboard({ initialLoggedIn = false }){
           <button onClick={()=>selectSection('news')} style={{padding:'12px',textAlign:'left'}}>News / Ads</button>
           <button onClick={()=>selectSection('feedbacks')} style={{padding:'12px',textAlign:'left'}}>Reviews</button>
           <button onClick={()=>selectSection('upload')} style={{padding:'12px',textAlign:'left'}}>Question Create</button>
+          <a href="/ad81188/admin/typing-tutor"><button style={{padding:'12px',textAlign:'left'}}>Typing Tutor (Admin)</button></a>
         </nav>
       </aside>
 

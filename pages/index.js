@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Head from 'next/head';
 import QuestionList from '../components/QuestionList';
 import NewsTicker from '../components/NewsTicker';
 
@@ -32,17 +33,20 @@ export default function Home({ questions, total, news, categories = [], initialQ
 
   return (
     <div style={{ padding: 0, fontFamily: 'Arial, sans-serif' }}>
-      <header className="site-header">
-        <div className="container header-inner">
-          <div>
-            <h1>StudyGK — General Knowledge MCQs</h1>
-            <p className="lead">Welcome! Practice daily with curated MCQs and explanations.</p>
-            <p className="sub">Exam से सम्बंधित news updates सबसे पहले — latest results, advertisements और important notifications भी यहाँ दिखेंगे।</p>
-          </div>
-        </div>
-      </header>
+      <Head>
+        <title>Typing Practice for Stenographer, Clerk & Data Entry — HCM Exam Prep</title>
+        <meta name="description" content="Typing practice and timed tests for Stenographer, Clerk, DEO, UDC/LDC and Railway/Bank HCM exams. Prepare for CRPF HCM, CISF HCM, Delhi Police HCM with realistic lessons." />
+        <meta name="keywords" content="Stenographer typing practice, Clerk typing test, Data Entry Operator practice, CRPF HCM, CISF HCM, Delhi Police HCM, typing tutor" />
+        <meta property="og:title" content="Typing Practice for Stenographer, Clerk & Data Entry — HCM Exam Prep" />
+        <meta property="og:description" content="Free online typing tests & lessons tailored for Stenographer, Clerk, DEO and Railway/Bank HCM exams (CRPF/CISF/Delhi Police)." />
+        {/* Short Hindi title/description for reference/search engines (optional) */}
+        <meta name="title-hi" content="टाइपिंग प्रैक्टिस — Stenographer, Clerk, Data Entry (HCM परीक्षा तैयारी)" />
+        <meta name="description-hi" content="Stenographer, Clerk, DEO, UDC/LDC और Railway/Bank HCM परीक्षाओं के लिए समयबद्ध टाइपिंग टेस्ट और अभ्यास। (CRPF HCM, CISF HCM, Delhi Police HCM)" />
+      </Head>
+      {/* SiteHeader is rendered globally in _app.js; avoid duplicating here */}
 
       <div className="container layout">
+        {/* header intentionally removed to avoid duplicate GK/typing text; main content follows */}
         <main style={{ flex: 1 }}>
           <section style={{ marginTop: 8 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
@@ -94,12 +98,28 @@ export default function Home({ questions, total, news, categories = [], initialQ
                   params.set('page', String(p));
                   return `/?${params.toString()}`;
                 };
+                // render up to 3 numeric page buttons and an ellipsis when more pages exist
+                const visiblePages = [];
+                if (totalPages <= 3) {
+                  for (let i = 1; i <= totalPages; i++) visiblePages.push(i);
+                } else {
+                  if (page <= 2) {
+                    visiblePages.push(1, 2, 3);
+                  } else if (page >= totalPages - 1) {
+                    visiblePages.push(totalPages - 2, totalPages - 1, totalPages);
+                  } else {
+                    visiblePages.push(page - 1, page, page + 1);
+                  }
+                }
                 return (
-                  <>
-                    <button onClick={() => { if (page > 1) window.location.href = paramsBase(page - 1); }} disabled={page <= 1}>Prev</button>
-                    <div style={{ padding: '6px 12px', alignSelf: 'center' }}>Page {page} of {totalPages}</div>
-                    <button onClick={() => { if (page < totalPages) window.location.href = paramsBase(page + 1); }} disabled={page >= totalPages}>Next</button>
-                  </>
+                  <div className="pagination">
+                    {visiblePages.map(pn => (
+                      <button key={pn} onClick={() => { window.location.href = paramsBase(pn); }} className={pn === page ? 'current' : ''}>{pn}</button>
+                    ))}
+                    {totalPages > Math.max(...visiblePages) && (
+                      <span className="ellipsis">...</span>
+                    )}
+                  </div>
                 );
               })()}
             </div>

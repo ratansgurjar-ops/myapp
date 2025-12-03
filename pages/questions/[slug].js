@@ -17,12 +17,15 @@ function makeDescription(primary, fallback, max = 150) {
 export default function QuestionPage({ item }) {
   if (!item) return <div style={{ padding: 20 }}>Question not found</div>;
   const metaDescription = makeDescription(item.solution || '', item.question_english || item.question_hindi || 'StudyGK question', 150);
+  // Append typing-practice / HCM exam intent to GK question pages for SEO
+  const seoSuffix = ' Practice typing and GK questions for Stenographer, Clerk, Data Entry Operator, UDC/LDC, Typist, Junior Secretariat Assistant, Office Assistant, Computer Operator and other Railway/Banking posts. Prepare for exams requiring typing tests (CRPF HCM, CISF HCM, Delhi Police HCM).';
 
   return (
     <div style={{ padding: 20, fontFamily: 'Arial, sans-serif' }}>
       <Head>
         <title>{(item.question_english || item.question_hindi || 'Question')} — StudyGK</title>
-        <meta name="description" content={metaDescription} />
+        <meta name="description" content={(metaDescription + ' ' + seoSuffix).slice(0, 300)} />
+        <meta name="keywords" content="Stenographer typing practice, Clerk typing test, Data Entry Operator practice, UDC typing, LDC typing, Typist, Junior Secretariat Assistant typing, Office Assistant typing, Computer Operator typing, Railway HCM, Bank HCM, CRPF HCM, CISF HCM, Delhi Police HCM, typing tutor, GK practice" />
         <link rel="canonical" href={`${process.env.NEXT_PUBLIC_BASE_URL || 'https://studygkhub.com'}/questions/${item.slug}`} />
         <meta property="og:title" content={item.question_english || item.question_hindi} />
         <meta property="og:description" content={metaDescription} />
@@ -60,6 +63,8 @@ export default function QuestionPage({ item }) {
           <div dangerouslySetInnerHTML={{ __html: item.solution }} />
         </div>
       )}
+
+      {/* Typing practice CTA removed to avoid duplication; use the dedicated Typing Tutor page */}
     </div>
   );
 }
