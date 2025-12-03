@@ -260,13 +260,7 @@ export default function TypingTutor() {
   // simple HTML escaper
   const escapeHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-  // normalize unit for comparison: lowercase, remove punctuation, collapse spaces
-  const normalizeUnit = (s) => String(s || '')
-    .toLowerCase()
-    .replace(/[\u2018\u2019\u201c\u201d]/g, "'")
-    .replace(/[\.,;:\-–—\[\]\(\)"'`]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  // NOTE: strict comparison is required for this tutor (match exactly including spaces/punctuation/case).
 
   // simple Levenshtein distance
   const levenshtein = (a, b) => {
@@ -286,30 +280,28 @@ export default function TypingTutor() {
     return dp[m][n];
   };
 
-  // compare two 5-char units with normalization + small fuzzy tolerance
+  // Strict comparison for 5-char units: exact match including spaces/punctuation/case
   const compareUnit = (exp, got) => {
-    const ne = normalizeUnit(exp);
-    const ng = normalizeUnit(got);
-    if (ne === ng) return true;
-    // allow small differences: tolerance 1 for short chunks, or 20% of length
-    const maxLen = Math.max(ne.length, ng.length);
-    const tol = Math.max(1, Math.ceil(maxLen * 0.2));
-    const dist = levenshtein(ne, ng);
-    return dist <= tol;
+    return exp === got;
   };
 
-  // Build HTML for source showing wrong 5-char units inline (red & strike)
+  // Build HTML for typed excerpt showing wrong 5-char units with the correct text after them
+  // 'text' is the typed text; 'wrongs' is array of { idx, exp, got }
   const buildSourceHtml = (text, wrongs) => {
-    const wmap = new Set((wrongs || []).map(w => Number(w.idx)));
+    const wmap = {};
+    (wrongs || []).forEach(w => { wmap[Number(w.idx)] = w; });
     const chunks = [];
     for (let i = 0; i < text.length; i += 5) {
       const chunk = text.slice(i, i + 5);
-      const esc = escapeHtml(chunk);
+      const escTyped = escapeHtml(chunk);
       const idx = Math.floor(i / 5);
-      if (wmap.has(idx)) {
-        chunks.push(`<span style="color:#b00;text-decoration:line-through">${esc}</span>`);
+      const w = wmap[idx];
+      if (w) {
+        const escExp = escapeHtml(w.exp || '');
+        // show typed (struck) and then show expected in green for easy spotting
+        chunks.push(`<span style="color:#b00;text-decoration:line-through;margin-right:6px">${escTyped}</span><span style=\"color:#080;font-weight:600;margin-right:8px\">→ ${escExp}</span>`);
       } else {
-        chunks.push(`<span>${esc}</span>`);
+        chunks.push(`<span>${escTyped}</span>`);
       }
     }
     return chunks.join('');
@@ -385,37 +377,48 @@ export default function TypingTutor() {
   return (
     <div style={{ padding: 12 }}>
       <h2>Typing Tutor</h2>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
-        <label style={{ alignSelf:'center' }}><input type="checkbox" checked={isExisting} onChange={e=>setIsExisting(e.target.checked)} /> Existing user</label>
-        <input placeholder="Username (a-z0-9_-)" value={username} onChange={e=>setUsername(e.target.value)} style={{ padding:8, minWidth:200 }} />
-        {!isExisting && <input placeholder="Your full name" value={displayName} onChange={e=>setDisplayName(e.target.value)} style={{ padding:8, minWidth:220 }} />}
-          <div style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
-            {!isExisting && (
-              <button onClick={async ()=>{ if(!username){ setSavedMsg('Provide username before saving'); return;} await saveExercise(); }} style={{ padding:'8px 10px' }}>Save</button>
-            )}
-            {isExisting && (
-              <button onClick={async ()=>{ 
-                if (!username) { setSavedMsg('Provide username to show'); return; }
-                await fetchUserExercises(username);
-                setDropdownOpen(true);
-              }} style={{ padding:'8px 10px' }}>Show</button>
-            )}
-          </div>
-          <div style={{ marginLeft:6, display:'inline-flex', alignItems:'center', gap:12 }}>
-            <span style={{ fontWeight:600 }}>Category:</span>
-            <select value={lessonCategory} onChange={e=>setLessonCategory(e.target.value)} style={{ padding:6 }}>
-              <option value="beginner">Beginner</option>
-              <option value="practice">Practice</option>
-            </select>
-            <label style={{ display:'inline-flex', alignItems:'center', gap:8 }}>
-              <span style={{ fontSize:13 }}>Time (min)</span>
-              <input type="number" step="0.5" value={timeLimit/60} onChange={e=>{ const v = Number(e.target.value||0); setTimeLimit(Math.max(0.5, v) * 60); }} style={{ width:80, padding:6 }} />
-            </label>
-            <label style={{ display:'inline-flex', alignItems:'center', gap:8 }}>
-              <input type="checkbox" checked={allowBackspace} onChange={e=>setAllowBackspace(e.target.checked)} /> Allow Backspace
-            </label>
-          </div>
-        
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12, overflowX: 'auto', paddingBottom: 6 }}>
+        <label style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap:8, whiteSpace: 'nowrap' }}>
+          <input type="checkbox" checked={isExisting} onChange={e=>setIsExisting(e.target.checked)} />
+          <span style={{ fontSize:14 }}>Existing user</span>
+        </label>
+
+        <input placeholder="Username (a-z0-9_-)" value={username} onChange={e=>setUsername(e.target.value)} style={{ padding:8, width:160, minWidth:120, flex: '0 0 auto' }} />
+
+        {!isExisting && (
+          <input placeholder="Your full name" value={displayName} onChange={e=>setDisplayName(e.target.value)} style={{ padding:8, width:180, minWidth:140, flex: '0 0 auto' }} />
+        )}
+
+        <div style={{ display:'inline-flex', gap:8, alignItems:'center', flex: '0 0 auto' }}>
+          {!isExisting && (
+            <button onClick={async ()=>{ if(!username){ setSavedMsg('Provide username before saving'); return;} await saveExercise(); }} style={{ padding:'8px 12px' }}>Save</button>
+          )}
+          {isExisting && (
+            <button onClick={async ()=>{ 
+              if (!username) { setSavedMsg('Provide username to show'); return; }
+              await fetchUserExercises(username);
+              setDropdownOpen(true);
+            }} style={{ padding:'8px 12px' }}>Show</button>
+          )}
+        </div>
+
+        <div style={{ display:'inline-flex', alignItems:'center', gap:8, flex: '0 0 auto' }}>
+          <span style={{ fontWeight:600, whiteSpace: 'nowrap' }}>Category:</span>
+          <select value={lessonCategory} onChange={e=>setLessonCategory(e.target.value)} style={{ padding:6, width:120 }}>
+            <option value="beginner">Beginner</option>
+            <option value="practice">Practice</option>
+          </select>
+        </div>
+
+        <label style={{ display:'inline-flex', alignItems:'center', gap:8, flex: '0 0 auto', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize:13 }}>Time (min)</span>
+          <input type="number" step="0.5" value={timeLimit/60} onChange={e=>{ const v = Number(e.target.value||0); setTimeLimit(Math.max(0.5, v) * 60); }} style={{ width:70, padding:6 }} />
+        </label>
+
+        <label style={{ display:'inline-flex', alignItems:'center', gap:8, flex: '0 0 auto', whiteSpace: 'nowrap' }}>
+          <input type="checkbox" checked={allowBackspace} onChange={e=>setAllowBackspace(e.target.checked)} />
+          <span style={{ fontSize:13 }}>Allow Backspace</span>
+        </label>
       </div>
 
       <div style={{ marginBottom: 12 }}>
@@ -434,7 +437,16 @@ export default function TypingTutor() {
             </div>
             {dropdownOpen && (
               <div style={{ position:'absolute', zIndex:50, background:'#fff', border:'1px solid #ddd', width:'100%', marginTop:6, borderRadius:4, maxHeight:220, overflow:'auto' }}>
-                <div onClick={()=>{ setDropdownOpen(false); setSelectedPractice('manual-create'); }} style={{ padding:8, cursor:'pointer', borderBottom:'1px solid #f1f1f1' }}>Create Manual Exercise...</div>
+                <div onClick={()=>{ 
+                    setDropdownOpen(false);
+                    if(!username) {
+                      setSavedMsg('Please create a username first to save manual exercises. Enter a username and click Save.');
+                      // focus username input if possible
+                      try { const el = document.querySelector('input[placeholder="Username (a-z0-9_-)"]'); if(el) el.focus(); } catch(e) {}
+                      return;
+                    }
+                    setSelectedPractice('manual-create');
+                  }} style={{ padding:8, cursor:'pointer', borderBottom:'1px solid #f1f1f1' }}>Create Manual Exercise...</div>
                 {Array.isArray(shared && shared[lessonCategory]) && (shared[lessonCategory] || []).filter(it=>it.visible).map(it => (
                   <div key={`admin:${it.id}`} onClick={()=>{ setDropdownOpen(false); handleSelectPractice(`admin:${it.id}`); }} style={{ padding:8, cursor:'pointer', borderBottom:'1px solid #f9f9f9' }}>{it.title || 'Shared Exercise'}</div>
                 ))}

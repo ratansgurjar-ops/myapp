@@ -4,7 +4,5 @@ Disallow: /api/
 # Allow everything else
 Allow: /
 
-Sitemap: https://studygkhub.com/sitemap.xml
-User-agent: *
-Disallow:
-Sitemap: %sitemap%
+# Sitemap (canonical with www)
+Sitemap: https://www.studygkhub.com/sitemap.xml

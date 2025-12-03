@@ -38,9 +38,13 @@ export default async function handler(req, res) {
     const [rows] = await pool.query('SELECT COUNT(*) as total FROM visits');
     const [recent] = await pool.query('SELECT COUNT(*) as last24 FROM visits WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 1 DAY)');
 
+    // Provide quick breakdowns for homepage and typing tutor
+    const [homeTotal] = await pool.query("SELECT COUNT(*) as c FROM visits WHERE path = '/' ");
+    const [typingTotal] = await pool.query("SELECT COUNT(*) as c FROM visits WHERE path = '/typing-tutor' ");
+
     // If no range/from-to specified, return totals only
     if (!range && !from && !to) {
-      return res.json({ total: rows[0].total, last24: recent[0].last24 });
+      return res.json({ total: rows[0].total, last24: recent[0].last24, homepage: (homeTotal[0] && homeTotal[0].c) || 0, typingTutor: (typingTotal[0] && typingTotal[0].c) || 0 });
     }
 
     // Determine from/to bounds
@@ -74,7 +78,10 @@ export default async function handler(req, res) {
     }
 
     const [items] = await pool.query(sql, [fromDate.toISOString().slice(0,19).replace('T',' '), toDate.toISOString().slice(0,19).replace('T',' ')]);
-    return res.json({ total: rows[0].total, last24: recent[0].last24, items });
+    // counts for the specified range
+    const [homeRange] = await pool.query("SELECT COUNT(*) as c FROM visits WHERE path = '/' AND createdAt BETWEEN ? AND ?", [fromDate.toISOString().slice(0,19).replace('T',' '), toDate.toISOString().slice(0,19).replace('T',' ')]);
+    const [typingRange] = await pool.query("SELECT COUNT(*) as c FROM visits WHERE path = '/typing-tutor' AND createdAt BETWEEN ? AND ?", [fromDate.toISOString().slice(0,19).replace('T',' '), toDate.toISOString().slice(0,19).replace('T',' ')]);
+    return res.json({ total: rows[0].total, last24: recent[0].last24, items, homepage: (homeRange[0] && homeRange[0].c) || 0, typingTutor: (typingRange[0] && typingRange[0].c) || 0 });
   }
 
   res.setHeader('Allow', 'GET,POST');

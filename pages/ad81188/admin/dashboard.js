@@ -142,7 +142,8 @@ export default function AdminDashboard({ initialLoggedIn = false }){
       const res = await fetch(url, { headers, credentials: 'same-origin' });
       if(!res.ok) { setStatus('Visits fetch failed'); return; }
       const j = await res.json();
-      setVisitsStats({ total: j.total, last24: j.last24 });
+      // store the full visits response (contains homepage and typingTutor counts)
+      setVisitsStats(j);
       setVisitItems(Array.isArray(j.items) ? j.items : []);
       setStatus('Visits loaded');
     }catch(e){ setStatus('Visits fetch error'); }
@@ -355,6 +356,8 @@ export default function AdminDashboard({ initialLoggedIn = false }){
               <div style={{display:'flex',gap:12}}>
                 <div style={{border:'1px solid #eee',padding:12}}><div style={{color:'#666'}}>Total</div><div style={{fontSize:20}}>{visitsStats ? visitsStats.total : '—'}</div></div>
                 <div style={{border:'1px solid #eee',padding:12}}><div style={{color:'#666'}}>Last 24h</div><div style={{fontSize:20}}>{visitsStats ? visitsStats.last24 : '—'}</div></div>
+                <div style={{border:'1px solid #eee',padding:12}}><div style={{color:'#666'}}>Homepage</div><div style={{fontSize:20}}>{visitsStats && typeof visitsStats.homepage !== 'undefined' ? visitsStats.homepage : '—'}</div></div>
+                <div style={{border:'1px solid #eee',padding:12}}><div style={{color:'#666'}}>Typing Tutor</div><div style={{fontSize:20}}>{visitsStats && typeof visitsStats.typingTutor !== 'undefined' ? visitsStats.typingTutor : '—'}</div></div>
               </div>
               {visitItems && visitItems.length>0 && (
                 <div style={{marginTop:8,border:'1px solid #eee',borderRadius:6,overflow:'auto'}}>

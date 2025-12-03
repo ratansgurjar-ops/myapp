@@ -94,6 +94,12 @@ body {
   .question-card .qc-main { order: 1; }
 }
 
+/* Ensure question card occupies full available width on small screens */
+@media (max-width: 480px) {
+  .question-card { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
+  .question-card .qc-main, .question-card .qc-right { width: 100% !important; max-width: 100% !important; }
+}
+
 /* Header button group */
 .header-actions { display:flex; gap:10px; margin-top:12px; justify-content:center; }
 .header-actions button { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.18); color: #fff; padding: 8px 12px; border-radius: 8px; cursor:pointer; font-weight:600; }
