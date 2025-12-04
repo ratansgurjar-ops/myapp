@@ -100,6 +100,18 @@ body {
   .question-card .qc-main, .question-card .qc-right { width: 100% !important; max-width: 100% !important; }
 }
 
+/* Additional mobile compactness for question cards: reduce vertical spacing, enlarge content width */
+@media (max-width: 480px) {
+  .question-card { padding: 8px; margin-bottom: 8px; border-radius: 6px; }
+  .question-card .qc-main { padding: 0; }
+  .question-card .qc-right { margin-left: 0; padding-top: 6px; font-size: 13px; }
+  .question-card .qc-right button { padding: 6px 8px; font-size: 13px; }
+  .question-card .qc-main div[style] { /* keep question text readable */ }
+  .question-card ul { margin-top: 6px; padding-left: 0; }
+  .question-card ul li { margin-top: 6px; }
+  .question-card .qc-main .question-title { font-size: 16px; font-weight:700; }
+}
+
 /* Header button group */
 .header-actions { display:flex; gap:10px; margin-top:12px; justify-content:center; }
 .header-actions button { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.18); color: #fff; padding: 8px 12px; border-radius: 8px; cursor:pointer; font-weight:600; }
