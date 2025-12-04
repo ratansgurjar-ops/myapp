@@ -35,6 +35,11 @@ body {
   main { padding: 12px !important; }
 }
 
+/* Reduce layout gap on small screens so cards use more horizontal space */
+@media (max-width: 768px) {
+  .layout { gap: 8px; }
+}
+
 @media (min-width: 769px) and (max-width: 1024px) {
   main { padding: 16px !important; }
   .layout aside { width: 280px; }
@@ -103,14 +108,20 @@ body {
 /* Additional mobile compactness for question cards: reduce vertical spacing, enlarge content width */
 @media (max-width: 480px) {
   .question-card { padding: 8px; margin-bottom: 8px; border-radius: 6px; }
+  /* make card take full width and remove extra gaps between cards */
+  .question-card { width: 100%; max-width: 100%; margin-bottom: 6px; }
   .question-card .qc-main { padding: 0; }
   .question-card .qc-right { margin-left: 0; padding-top: 6px; font-size: 13px; }
   .question-card .qc-right button { padding: 6px 8px; font-size: 13px; }
   .question-card .qc-main div[style] { /* keep question text readable */ }
-  .question-card ul { margin-top: 6px; padding-left: 0; }
-  .question-card ul li { margin-top: 6px; }
+  .question-card ul { margin-top: 4px; padding-left: 0; }
+  .question-card ul li { margin-top: 4px; }
   .question-card .qc-main .question-title { font-size: 16px; font-weight:700; }
 }
+
+/* Reduce default margins inside question card to avoid tall cards */
+.question-card .qc-main > div, .question-card .qc-main p, .question-card .qc-main h1, .question-card .qc-main h2 { margin-top: 0; margin-bottom: 4px; }
+.question-card .qc-main .question-title { margin-bottom: 4px; }
 
 /* Header button group */
 .header-actions { display:flex; gap:10px; margin-top:12px; justify-content:center; }
