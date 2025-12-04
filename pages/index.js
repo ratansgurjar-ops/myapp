@@ -187,7 +187,6 @@ export default function Home({ questions, total, news, categories = [], initialQ
 }
 
 export async function getServerSideProps(context) {
-  const base = process.env.NEXT_PUBLIC_BASE_URL || 'https://studygkhub.com';
   const q = context.query.q || '';
   const category = context.query.category || '';
   const chapter = context.query.chapter || '';
@@ -197,26 +196,29 @@ export async function getServerSideProps(context) {
   let offset = 0;
   if (pageNum <= 1) offset = 0;
   else offset = 10 + (pageNum - 2) * 5;
-  // Use built-in fetch available in Node 18+ / Next.js server environment
-  const params = new URLSearchParams();
-  if (q) params.set('q', q);
-  if (category) params.set('category', category);
-  if (chapter) params.set('chapter', chapter);
-  params.set('page', String(pageNum)); params.set('limit', String(limit));
-  // when filtering by category or chapter, return a random selection
-  if (category || chapter) params.set('random', '1');
-  // include offset so API can handle mixed page sizes
-  params.set('offset', String(offset));
-  const resQ = await fetch(`${base}/api/questions?${params.toString()}`);
-  const newsParams = new URLSearchParams();
-  if (q) newsParams.set('q', q);
-  newsParams.set('page', '1'); newsParams.set('limit', '50');
-  const resN = await fetch(`${base}/api/news?${newsParams.toString()}`);
-  const qd = await resQ.json().catch(() => ({ items: [], total: 0 }));
-  const nd = await resN.json().catch(() => ({ items: [] }));
-  // ensure items have type default 'news'
-  const news = (nd.items || []).map(n => ({ type: n.type || 'news', ...n }));
+
+  // Call models directly on the server to avoid making HTTP requests to our own API
+  const Question = require('../models/question');
+  const News = require('../models/news');
+  const qd = await Question.findQuestions({ q, category, chapter, page: pageNum, limit, random: !!(category || chapter), offset }).catch(() => ({ items: [], total: 0 }));
+  const nd = await News.findNews({ q, page: 1, limit: 50 }).catch(() => ({ items: [] }));
+
+  // Convert Date objects (from mysql rows) to ISO strings so Next.js can serialize them
+  const questions = (qd.items || []).map(i => ({
+    ...i,
+    createdAt: i.createdAt && i.createdAt.toISOString ? i.createdAt.toISOString() : (i.createdAt || null),
+    updatedAt: i.updatedAt && i.updatedAt.toISOString ? i.updatedAt.toISOString() : (i.updatedAt || null)
+  }));
+
+  // ensure items have type default 'news' and serialize dates
+  const news = (nd.items || []).map(n => ({
+    type: n.type || 'news',
+    ...n,
+    createdAt: n.createdAt && n.createdAt.toISOString ? n.createdAt.toISOString() : (n.createdAt || null),
+    updatedAt: n.updatedAt && n.updatedAt.toISOString ? n.updatedAt.toISOString() : (n.updatedAt || null)
+  }));
+
   // build categories from questions
-  const cats = Array.from(new Set((qd.items || []).map(i => i.category).filter(Boolean)));
-  return { props: { questions: qd.items || [], total: qd.total || 0, news, categories: cats, initialQ: q, initialCategory: category, initialChapter: chapter, initialPage: pageNum, initialLimit: limit } };
+  const cats = Array.from(new Set(questions.map(i => i.category).filter(Boolean)));
+  return { props: { questions, total: qd.total || 0, news, categories: cats, initialQ: q, initialCategory: category, initialChapter: chapter, initialPage: pageNum, initialLimit: limit } };
 }

@@ -34,18 +34,41 @@ export default function QuestionPage({ item }) {
       </Head>
 
       <h1>{item.question_english || item.question_hindi}</h1>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "Article",
-        headline: item.question_english || item.question_hindi || '',
-        description: (item.solution || '').slice(0,160) || '',
-        mainEntityOfPage: {
-          "@type": "WebPage",
-          "@id": `${process.env.NEXT_PUBLIC_BASE_URL || 'https://studygkhub.com'}/questions/${item.slug}`
-        },
-        datePublished: item.createdAt || undefined,
-        author: { "@type": "Person", name: "StudyGK" }
-      }) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify((() => {
+        const base = process.env.NEXT_PUBLIC_BASE_URL || 'https://studygkhub.com';
+        const article = {
+          "@context": "https://schema.org",
+          "@type": "Article",
+          headline: item.question_english || item.question_hindi || '',
+          description: (item.solution || '').slice(0,160) || '',
+          mainEntityOfPage: {
+            "@type": "WebPage",
+            "@id": `${base}/questions/${item.slug}`
+          },
+          datePublished: item.createdAt || undefined,
+          author: { "@type": "Organization", name: "StudyGK" },
+          publisher: { "@type": "Organization", name: "StudyGK Hub", url: base, logo: { "@type": "ImageObject", url: `${base}/logo.png` } }
+        };
+
+        // BreadcrumbList for better indexing/navigation
+        const bread = {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: base + '/' },
+            { "@type": "ListItem", position: 2, name: "Questions", item: base + '/questions' }
+          ]
+        };
+        // add category as third breadcrumb if available
+        if (item.category) {
+          bread.itemListElement.push({ "@type": "ListItem", position: 3, name: item.category, item: `${base}/?category=${encodeURIComponent(item.category)}` });
+          bread.itemListElement.push({ "@type": "ListItem", position: 4, name: (item.question_english || item.question_hindi || '').slice(0,60), item: `${base}/questions/${item.slug}` });
+        } else {
+          bread.itemListElement.push({ "@type": "ListItem", position: 3, name: (item.question_english || item.question_hindi || '').slice(0,60), item: `${base}/questions/${item.slug}` });
+        }
+
+        return { article, breadcrumb: bread };
+      })()) }} />
       <div style={{ marginTop: 12 }}>
         <ul>
           {['options_1_english','options_2_english','options_3_english','options_4_english'].map((k) => (

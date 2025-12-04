@@ -4,5 +4,5 @@ Disallow: /api/
 # Allow everything else
 Allow: /
 
-# Sitemap (canonical with www)
-Sitemap: https://www.studygkhub.com/sitemap.xml
+# Sitemap (include both www and non-www to be safe)
+Sitemap: https://studygkhub.com/sitemap.xml

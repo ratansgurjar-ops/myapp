@@ -8,6 +8,21 @@ export default function DelhiPoliceHCM() {
         <title>Delhi Police HCM Typing Practice — Typing Tests for Clerical Posts</title>
         <meta name="description" content="Typing practice for Delhi Police HCM exams — clerk and assistant posts that require typing tests. Timed drills, lesson saves and progress tracking." />
         <meta name="keywords" content="Delhi Police HCM typing, Delhi Police typing practice, typist Delhi Police, clerk Delhi Police" />
+        <link rel="canonical" href={`${process.env.NEXT_PUBLIC_BASE_URL || 'https://studygkhub.com'}/typing/delhi-police-hcm`} />
+        <meta property="og:title" content="Delhi Police HCM Typing Practice — Typing Tests for Clerical Posts" />
+        <meta property="og:description" content="Typing practice for Delhi Police HCM exams — clerk and assistant posts that require typing tests. Timed drills and progress tracking." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={`${process.env.NEXT_PUBLIC_BASE_URL || 'https://studygkhub.com'}/typing/delhi-police-hcm`} />
+        <meta name="twitter:card" content="summary" />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          "url": `${process.env.NEXT_PUBLIC_BASE_URL || 'https://studygkhub.com'}/typing/delhi-police-hcm`,
+          "headline": "Delhi Police HCM Typing Practice — Typing Tests for Clerical Posts",
+          "description": "Typing practice for Delhi Police HCM exams — clerk and assistant posts that require typing tests. Timed drills and progress tracking.",
+          "inLanguage": "en-IN",
+          "publisher": { "@type": "Organization", "name": "StudyGK Hub", "url": (process.env.NEXT_PUBLIC_BASE_URL || 'https://studygkhub.com') }
+        }) }} />
       </Head>
 
       <h1>Delhi Police Head Constable (Min) — Typing Practice</h1>

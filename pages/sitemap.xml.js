@@ -28,6 +28,34 @@ export async function getServerSideProps({ res }) {
     { loc: base + '/', lastmod: new Date().toISOString() }
   ];
 
+  // include known important static pages for indexing
+  const staticPaths = [
+    '/typing-tutor',
+    '/news',
+    '/advertisements',
+    '/questions'
+  ];
+  staticPaths.forEach(p => urls.push({ loc: base + p, lastmod: new Date().toISOString() }));
+
+  // Try adding pages under /typing (e.g., cisf-hcm, crpf-hcm, delhi-police-hcm)
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const typingDir = path.join(process.cwd(), 'pages', 'typing');
+    if (fs.existsSync(typingDir)) {
+      const files = fs.readdirSync(typingDir);
+      files.forEach(f => {
+        if (!f.endsWith('.js') && !f.endsWith('.jsx') && !f.endsWith('.ts') && !f.endsWith('.tsx')) return;
+        // skip api files or index files
+        if (f === 'index.js' || f === 'index.jsx' || f.startsWith('_')) return;
+        const name = f.replace(/\.jsx?$|\.tsx?$/i, '');
+        urls.push({ loc: `${base}/typing/${name}`, lastmod: new Date().toISOString() });
+      });
+    }
+  } catch (e) {
+    // ignore filesystem errors; sitemap will at least include staticPaths
+  }
+
   questions.forEach((q) => {
     const last = (q.updatedAt || q.createdAt || new Date()).toISOString();
     urls.push({ loc: `${base}/questions/${q.slug}`, lastmod: last });
@@ -39,7 +67,15 @@ export async function getServerSideProps({ res }) {
   });
 
   const xml = generateSiteMap(urls);
-  res.setHeader('Content-Type', 'text/xml');
+  // Add a robots header to encourage indexing and log generation for debugging
+  try {
+    res.setHeader('Content-Type', 'text/xml');
+    res.setHeader('X-Robots-Tag', 'index, follow');
+  } catch (e) {
+    // ignore header errors
+  }
+  // small debug log to help with production troubleshooting (visible in server logs)
+  try { console.log('sitemap.xml generated with', urls.length, 'urls'); } catch (e) {}
   res.write(xml);
   res.end();
 

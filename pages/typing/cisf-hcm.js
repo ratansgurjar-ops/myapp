@@ -8,6 +8,21 @@ export default function CISFHCM() {
         <title>CISF HCM Typing Practice — Typing Tutor for Exams</title>
         <meta name="description" content="Practice typing for CISF HCM: timed tests and lessons for Stenographer, Clerk, DEO and related posts. Improve accuracy and exam readiness." />
         <meta name="keywords" content="CISF HCM typing, typing practice CISF, Stenographer CISF, Clerk CISF" />
+        <link rel="canonical" href={`${process.env.NEXT_PUBLIC_BASE_URL || 'https://studygkhub.com'}/typing/cisf-hcm`} />
+        <meta property="og:title" content="CISF HCM Typing Practice — Typing Tutor for Exams" />
+        <meta property="og:description" content="Practice typing for CISF HCM: timed tests and lessons for Stenographer, Clerk, DEO and related posts. Improve accuracy and exam readiness." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={`${process.env.NEXT_PUBLIC_BASE_URL || 'https://studygkhub.com'}/typing/cisf-hcm`} />
+        <meta name="twitter:card" content="summary" />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          "url": `${process.env.NEXT_PUBLIC_BASE_URL || 'https://studygkhub.com'}/typing/cisf-hcm`,
+          "headline": "CISF HCM Typing Practice — Typing Tutor for Exams",
+          "description": "Practice typing for CISF HCM: timed tests and lessons for Stenographer, Clerk, DEO and related posts. Improve accuracy and exam readiness.",
+          "inLanguage": "en-IN",
+          "publisher": { "@type": "Organization", "name": "StudyGK Hub", "url": (process.env.NEXT_PUBLIC_BASE_URL || 'https://studygkhub.com') }
+        }) }} />
       </Head>
 
       <h1>CISF HCM — Typing Practice</h1>

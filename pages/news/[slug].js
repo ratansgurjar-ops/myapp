@@ -29,6 +29,23 @@ export default function NewsPage({ item }) {
         <meta property="og:type" content="article" />
         {item.image && <meta property="og:image" content={item.image} />}
         <meta name="twitter:card" content={item.image ? 'summary_large_image' : 'summary'} />
+        {/* JSON-LD Article structured data for better indexing */}
+        {(() => {
+          const base = process.env.NEXT_PUBLIC_BASE_URL || 'https://studygkhub.com';
+          const ld = {
+            "@context": "https://schema.org",
+            "@type": "Article",
+            headline: item.title,
+            description: metaDescription,
+            url: `${base}/news/${item.slug}`,
+            publisher: { "@type": "Organization", name: "StudyGK Hub", url: base, logo: { "@type": "ImageObject", url: `${base}/logo.png` } },
+            author: item.author ? { "@type": "Person", name: item.author } : { "@type": "Organization", name: "StudyGK Hub" }
+          };
+          if (item.image) ld.image = item.image;
+          if (item.createdAt) ld.datePublished = item.createdAt;
+          if (item.updatedAt) ld.dateModified = item.updatedAt;
+          return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />;
+        })()}
       </Head>
 
       <div style={{ marginBottom: 12 }}><a href="/">← Back to homepage</a></div>

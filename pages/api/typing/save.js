@@ -1,5 +1,14 @@
 const { getPool } = require('../../../lib/db');
 
+// Increase the built-in Next.js body parser limit so ~1MB+ payloads are accepted
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '5mb'
+    }
+  }
+};
+
 // Save a new practice for a user into MySQL tables `typing_user_exercises` and `typing_users`.
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
