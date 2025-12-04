@@ -1,5 +1,106 @@
 import React, { useState, useRef, useEffect } from 'react';
 
+const TOKEN_REGEX = /(\s+|[A-Za-z0-9]+|[^\sA-Za-z0-9])/g;
+
+const classifyTokenKind = (value) => {
+  if (!value) return 'word';
+  if (/^\s+$/.test(value)) return 'space';
+  if (/^[A-Za-z0-9]+$/.test(value)) return 'word';
+  return 'punct';
+};
+
+// Tokenize a string into token metadata (words, punctuation, whitespace) with indices.
+const tokenizeWithIndices = (s) => {
+  const res = [];
+  if (!s) return res;
+  let match;
+  while ((match = TOKEN_REGEX.exec(s)) !== null) {
+    const value = match[0];
+    res.push({
+      token: value,
+      word: value,
+      start: match.index,
+      end: match.index + value.length,
+      kind: classifyTokenKind(value)
+    });
+  }
+  return res;
+};
+
+const cloneToken = (token) => ({ ...token });
+
+// Align expected and typed tokens using edit distance.
+const alignWords = (expectedTokens, typedTokens) => {
+  const m = expectedTokens.length;
+  const n = typedTokens.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + (expectedTokens[i - 1].word === typedTokens[j - 1].word ? 0 : 1)
+      );
+    }
+  }
+  let i = m;
+  let j = n;
+  const ops = [];
+  while (i > 0 || j > 0) {
+    if (
+      i > 0 &&
+      j > 0 &&
+      dp[i][j] === dp[i - 1][j - 1] + (expectedTokens[i - 1].word === typedTokens[j - 1].word ? 0 : 1)
+    ) {
+      if (expectedTokens[i - 1].word === typedTokens[j - 1].word) {
+        ops.unshift({ type: 'eq', exp: expectedTokens[i - 1], got: typedTokens[j - 1], expIndex: i - 1, gotIndex: j - 1 });
+      } else {
+        ops.unshift({ type: 'sub', exp: expectedTokens[i - 1], got: typedTokens[j - 1], expIndex: i - 1, gotIndex: j - 1 });
+      }
+      i -= 1;
+      j -= 1;
+    } else if (i > 0 && dp[i][j] === dp[i - 1][j] + 1) {
+      ops.unshift({ type: 'del', exp: expectedTokens[i - 1], got: null, expIndex: i - 1, gotIndex: null });
+      i -= 1;
+    } else {
+      ops.unshift({ type: 'ins', exp: null, got: typedTokens[j - 1], expIndex: null, gotIndex: j - 1 });
+      j -= 1;
+    }
+  }
+  while (ops.length && ops[ops.length - 1].type === 'del') {
+    ops.pop();
+  }
+  return ops;
+};
+
+const escapeHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+const formatWhitespaceTokenHtml = (token) => {
+  if (!token) return '';
+  return token.split('').map((ch) => {
+    if (ch === ' ') return '&middot;';
+    if (ch === '\t') return '<span style="color:#666">⇥</span>';
+    if (ch === '\n') return '<span style="color:#666">↵</span><br/>';
+    return escapeHtml(ch);
+  }).join('');
+};
+
+const formatTokenHtml = (token, kind, options = {}) => {
+  const { exposeWhitespace = false } = options;
+  if (kind === 'space') {
+    if (!token) return '';
+    if (exposeWhitespace) return formatWhitespaceTokenHtml(token);
+    return token
+      .replace(/ /g, '&nbsp;')
+      .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
+      .replace(/\n/g, '<br/>');
+  }
+  return escapeHtml(token || '');
+};
+
+
 export default function TypingTutor() {
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -158,6 +259,10 @@ export default function TypingTutor() {
   };
 
   const startTest = () => {
+    if (!sourceText || !typingReady) {
+      setSavedMsg('Practice text not loaded yet');
+      return;
+    }
     setResult(null);
     setTyped('');
     setTimeLeft(timeLimit);
@@ -173,38 +278,103 @@ export default function TypingTutor() {
     const typedText = typed || '';
     const charsTyped = typedText.length;
 
-    // split into 5-character units based on typed length (spaces count)
-    const chunks = [];
-    for (let i = 0; i < charsTyped; i += 5) {
-      const exp = expected.slice(i, i + 5) || '';
-      const got = typedText.slice(i, i + 5) || '';
-      chunks.push({ exp, got, idx: Math.floor(i / 5) });
-    }
+    // Compare by words instead of fixed 5-character units. This avoids cascading errors
+    // when a user misses a character and shifts the remainder. We treat any word with
+    // any mismatch (missing/extra/typo) as ONE wrong word.
+    const expTokens = tokenizeWithIndices(expected);
+    const gotTokens = tokenizeWithIndices(typedText);
+    const ops = alignWords(expTokens, gotTokens);
+    const typedCoverageEnd = typedText.length;
+    const trimmedOps = ops.filter(op => {
+      if (op.type !== 'del') return true;
+      const expStart = op.exp && typeof op.exp.start === 'number' ? op.exp.start : null;
+      return expStart !== null && expStart < typedCoverageEnd;
+    });
 
-    // a unit is wrong if fuzzy comparison fails (ignores punctuation/case and allows small typos)
-    const wrongUnits = chunks.filter(c => (c.got && c.got.length > 0) && !compareUnit(c.exp, c.got));
-    const wrongCount = wrongUnits.length;
+    // build wrongs: count substitutions, insertions, and in-text deletions as mistakes (one per token)
+    const wrongWords = [];
+    trimmedOps.forEach((op, idx) => {
+      if (op.type === 'sub') {
+        wrongWords.push({
+          idx,
+          type: 'sub',
+          exp: op.exp ? op.exp.token : '',
+          expStart: op.exp ? op.exp.start : null,
+          expEnd: op.exp ? op.exp.end : null,
+          expKind: op.exp ? op.exp.kind : 'word',
+          got: op.got ? op.got.token : '',
+          gotStart: op.got ? op.got.start : null,
+          gotEnd: op.got ? op.got.end : null,
+          gotKind: op.got ? op.got.kind : 'word'
+        });
+      } else if (op.type === 'ins') {
+        wrongWords.push({
+          idx,
+          type: 'ins',
+          exp: '',
+          expStart: null,
+          expEnd: null,
+          expKind: 'word',
+          got: op.got ? op.got.token : '',
+          gotStart: op.got ? op.got.start : null,
+          gotEnd: op.got ? op.got.end : null,
+          gotKind: op.got ? op.got.kind : 'word'
+        });
+      } else if (op.type === 'del') {
+        const expToken = op.exp;
+        const expStart = expToken ? expToken.start : null;
+        const withinTypedRange = typeof expStart === 'number' ? expStart < typedCoverageEnd : false;
+        if (withinTypedRange && expToken) {
+          wrongWords.push({
+            idx,
+            type: 'del',
+            exp: expToken.token || '',
+            expStart: expToken.start,
+            expEnd: expToken.end,
+            expKind: expToken.kind || 'word',
+            got: '',
+            gotStart: null,
+            gotEnd: null,
+            gotKind: expToken.kind || 'word'
+          });
+        }
+      }
+      // deletions that happen after the user stops typing remain ignored so unfinished tails aren't penalized
+    });
 
-    // total units are based on typed characters
-    const totalUnitsTyped = Math.ceil(charsTyped / 5) || 0;
+    const wrongCount = wrongWords.length;
+    const totalWordsTyped = gotTokens.filter(t => t.kind === 'word').length;
 
     // elapsed time in seconds (use timeLimit minus remaining time)
     const elapsedSeconds = Math.max(1, (timeLimit || 60) - (timeLeft || 0));
     const minutes = elapsedSeconds / 60;
 
-    // gross speed = typed 5-char units per minute
-    const unitsTyped = totalUnitsTyped;
-    const grossWpm = minutes > 0 ? (unitsTyped / minutes) : 0;
+    // gross speed = typed words per minute
+    const grossWpm = minutes > 0 ? (totalWordsTyped / minutes) : 0;
 
-    // forgiveness: allow 5% of total typed units as free mistakes
-    const allowedMistakes = Math.floor(totalUnitsTyped * 0.05);
+    // forgiveness: allow 5% of total typed words as free mistakes
+    const allowedMistakes = Math.floor(totalWordsTyped * 0.05);
     const effectiveWrong = Math.max(0, wrongCount - allowedMistakes);
 
-    // net WPM subtracts effective wrong units per minute from gross WPM
+    // net WPM subtracts effective wrong words per minute from gross WPM
     const netWpm = Math.max(0, Math.round(grossWpm - (effectiveWrong / minutes)));
 
-    const percent = totalUnitsTyped > 0 ? Math.round(((totalUnitsTyped - effectiveWrong) / totalUnitsTyped) * 100) : 0;
-    setResult({ charsTyped, totalUnits: totalUnitsTyped, wrongCount, allowedMistakes, effectiveWrong, percent, wrongs: wrongUnits, grossWpm: Math.round(grossWpm), netWpm });
+    const accuracyRatio = totalWordsTyped > 0 ? (totalWordsTyped - effectiveWrong) / totalWordsTyped : 0;
+    const percent = totalWordsTyped > 0 ? Math.max(0, Math.round(accuracyRatio * 100)) : 0;
+    setResult({
+      charsTyped,
+      totalWords: totalWordsTyped,
+      wrongCount,
+      allowedMistakes,
+      effectiveWrong,
+      percent,
+      wrongs: wrongWords,
+      grossWpm: Math.round(grossWpm),
+      netWpm,
+      elapsedSeconds,
+      elapsedMinutes: minutes,
+      ops: trimmedOps
+    });
   };
 
   const exportResultPdf = () => {
@@ -212,37 +382,36 @@ export default function TypingTutor() {
     const titleText = title || 'Typing Result';
     const lines = [];
     lines.push(`<h1 style="font-family:Arial,Helvetica,sans-serif">${escapeHtml(titleText)}</h1>`);
-    lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Words (5-char units): <strong>${result.totalUnits}</strong></p>`);
-    lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Wrong units: <strong>${result.wrongCount}</strong></p>`);
+    lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Words typed: <strong>${result.totalWords || 0}</strong></p>`);
+    lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Mistakes: <strong>${result.wrongCount}</strong></p>`);
     lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Allowed mistakes (5%): <strong>${result.allowedMistakes || 0}</strong></p>`);
-    lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Effective wrong units: <strong>${result.effectiveWrong || 0}</strong></p>`);
+    lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Effective wrong words: <strong>${result.effectiveWrong || 0}</strong></p>`);
     lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Gross WPM: <strong>${result.grossWpm || 0}</strong></p>`);
     lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Net WPM: <strong>${result.netWpm || 0}</strong></p>`);
     lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Percentage: <strong>${result.percent}%</strong></p>`);
+    lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Time used: <strong>${formatMinutes(result.elapsedMinutes)}</strong></p>`);
     if (Array.isArray(result.wrongs) && result.wrongs.length > 0) {
-      lines.push('<h3 style="font-family:Arial,Helvetica,sans-serif">Wrong units (expected → typed)</h3>');
-      lines.push('<ul style="font-family:Arial,Helvetica,sans-serif">');
+      lines.push('<h3 style="font-family:Arial,Helvetica,sans-serif">Mistakes</h3>');
+      lines.push('<table style="width:100%;border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:14px">');
+      lines.push('<thead><tr><th style="text-align:left;border-bottom:1px solid #e5e5e5;padding:6px">Typed</th><th style="text-align:left;border-bottom:1px solid #e5e5e5;padding:6px">Expected</th><th style="text-align:left;border-bottom:1px solid #e5e5e5;padding:6px">Issue</th></tr></thead>');
+      lines.push('<tbody>');
       result.wrongs.forEach(w => {
-        lines.push(`<li><span style="color:#b00;text-decoration:line-through;margin-right:6px">${escapeHtml(w.exp)}</span> → <span style="color:#080">${escapeHtml(w.got)}</span></li>`);
+        const exp = formatTokenHtml(w.exp, w.expKind, { exposeWhitespace: true }) || '<em>—</em>';
+        const got = formatTokenHtml(w.got, w.gotKind, { exposeWhitespace: true }) || '<em>—</em>';
+        const issue = w.type === 'ins' ? 'Extra input' : (w.type === 'del' ? 'Missing' : 'Mismatch');
+        lines.push(`<tr><td style="padding:6px;border-bottom:1px solid #f5f5f5">${got}</td><td style="padding:6px;border-bottom:1px solid #f5f5f5">${exp}</td><td style="padding:6px;border-bottom:1px solid #f5f5f5">${issue}</td></tr>`);
       });
-      lines.push('</ul>');
+      lines.push('</tbody></table>');
     }
     // optionally include the source text truncated for completeness
     // include typed excerpt only
     const typedText = (typeof typed !== 'undefined' && typed) ? typed : '';
     if (typedText) {
-      lines.push('<h3 style="font-family:Arial,Helvetica,sans-serif">Typed (excerpt)</h3>');
-      const wrongs = result && result.wrongs ? result.wrongs : [];
-      const wmap = new Set((wrongs || []).map(w => Number(w.idx)));
-      const pieces = [];
-      for (let i = 0; i < typedText.length && i < 2000; i += 5) {
-        const chunk = typedText.slice(i, i + 5);
-        const esc = escapeHtml(chunk);
-        const idx = Math.floor(i / 5);
-        if (wmap.has(idx)) pieces.push(`<span style="color:#b00;text-decoration:line-through">${esc}</span>`);
-        else pieces.push(`<span>${esc}</span>`);
+      const excerptHtml = buildSourceHtml(typedText, result);
+      if (excerptHtml) {
+        lines.push('<h3 style="font-family:Arial,Helvetica,sans-serif">Typed (excerpt)</h3>');
+        lines.push(`<pre style="font-family:monospace;white-space:pre-wrap;background:#f7f7f7;padding:10px;border-radius:6px">${excerptHtml}</pre>`);
       }
-      lines.push(`<pre style="font-family:monospace;white-space:pre-wrap;background:#f7f7f7;padding:10px;border-radius:6px">${pieces.join('')}</pre>`);
     }
 
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(titleText)}</title>
@@ -256,55 +425,70 @@ export default function TypingTutor() {
     // wait a bit for rendering then trigger print
     setTimeout(() => { try { w.focus(); w.print(); } catch (e) {} }, 400);
   };
-
-  // simple HTML escaper
-  const escapeHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const formatMinutes = (mins) => {
+    if (!mins || Number.isNaN(mins)) return '0 sec';
+    const rounded = Math.round(mins * 100) / 100;
+    if (rounded >= 1) return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded} min`;
+    return `${Math.round(rounded * 60)} sec`;
+  };
 
   // NOTE: strict comparison is required for this tutor (match exactly including spaces/punctuation/case).
 
-  // simple Levenshtein distance
-  const levenshtein = (a, b) => {
-    const m = a.length;
-    const n = b.length;
-    if (m === 0) return n;
-    if (n === 0) return m;
-    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
-    for (let i = 0; i <= m; i++) dp[i][0] = i;
-    for (let j = 0; j <= n; j++) dp[0][j] = j;
-    for (let i = 1; i <= m; i++) {
-      for (let j = 1; j <= n; j++) {
-        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-        dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
-      }
+  // Build HTML for typed excerpt highlighting wrong words in red and showing expected words.
+  const buildSourceHtml = (text, summary = {}) => {
+    const ops = Array.isArray(summary.ops) ? summary.ops : null;
+    if (ops && ops.length) {
+      const spans = [];
+      let pendingDeletes = [];
+      const flushPending = () => {
+        if (!pendingDeletes.length) return;
+        const expectedHtml = pendingDeletes.map(tok => formatTokenHtml(tok ? tok.token : '', tok ? tok.kind : 'word', { exposeWhitespace: true })).join('');
+        spans.push(`<span style="color:#b00;font-weight:600;margin-right:10px">∅ → ${expectedHtml}</span>`);
+        pendingDeletes = [];
+      };
+      ops.forEach(op => {
+        if (op.type === 'del') {
+          if (op.exp) pendingDeletes.push(op.exp);
+          return;
+        }
+        flushPending();
+        if (op.type === 'eq') {
+          const token = op.got || op.exp;
+          spans.push(`<span>${formatTokenHtml(token ? token.token : '', token ? token.kind : 'word')}</span>`);
+        } else if (op.type === 'sub') {
+          const typedHtml = formatTokenHtml(op.got ? op.got.token : '', op.got ? op.got.kind : 'word', { exposeWhitespace: true });
+          const expected = formatTokenHtml(op.exp ? op.exp.token : '', op.exp ? op.exp.kind : 'word', { exposeWhitespace: true });
+          spans.push(`<span style="color:#b00;text-decoration:line-through;margin-right:6px">${typedHtml}</span><span style="color:#080;font-weight:600;margin-right:10px">→ ${expected}</span>`);
+        } else if (op.type === 'ins') {
+          const typedHtml = formatTokenHtml(op.got ? op.got.token : '', op.got ? op.got.kind : 'word', { exposeWhitespace: true });
+          spans.push(`<span style="color:#b00;text-decoration:line-through;margin-right:10px">${typedHtml}</span>`);
+        }
+      });
+      flushPending();
+      return spans.join('');
     }
-    return dp[m][n];
-  };
 
-  // Strict comparison for 5-char units: exact match including spaces/punctuation/case
-  const compareUnit = (exp, got) => {
-    return exp === got;
-  };
-
-  // Build HTML for typed excerpt showing wrong 5-char units with the correct text after them
-  // 'text' is the typed text; 'wrongs' is array of { idx, exp, got }
-  const buildSourceHtml = (text, wrongs) => {
-    const wmap = {};
-    (wrongs || []).forEach(w => { wmap[Number(w.idx)] = w; });
-    const chunks = [];
-    for (let i = 0; i < text.length; i += 5) {
-      const chunk = text.slice(i, i + 5);
-      const escTyped = escapeHtml(chunk);
-      const idx = Math.floor(i / 5);
-      const w = wmap[idx];
-      if (w) {
-        const escExp = escapeHtml(w.exp || '');
-        // show typed (struck) and then show expected in green for easy spotting
-        chunks.push(`<span style="color:#b00;text-decoration:line-through;margin-right:6px">${escTyped}</span><span style=\"color:#080;font-weight:600;margin-right:8px\">→ ${escExp}</span>`);
+    if (!text) return '';
+    const wrongs = summary && summary.wrongs ? summary.wrongs : [];
+    const tokens = tokenizeWithIndices(text);
+    const wrongMap = {};
+    (wrongs || []).forEach(w => {
+      if (typeof w.gotStart === 'number') wrongMap[w.gotStart] = w;
+    });
+    const spans = [];
+    tokens.forEach(token => {
+      const wrong = wrongMap[token.start];
+      const typedHtml = formatTokenHtml(token.token, token.kind, { exposeWhitespace: !!wrong });
+      if (wrong && wrong.type === 'sub') {
+        const expected = formatTokenHtml(wrong.exp, wrong.expKind, { exposeWhitespace: true });
+        spans.push(`<span style="color:#b00;text-decoration:line-through;margin-right:6px">${typedHtml}</span><span style="color:#080;font-weight:600;margin-right:8px">→ ${expected}</span>`);
+      } else if (wrong && wrong.type === 'ins') {
+        spans.push(`<span style="color:#b00;text-decoration:line-through;margin-right:6px">${typedHtml}</span>`);
       } else {
-        chunks.push(`<span>${escTyped}</span>`);
+        spans.push(`<span>${typedHtml}</span>`);
       }
-    }
-    return chunks.join('');
+    });
+    return spans.join(' ');
   };
 
   const onTypedChange = (e) => {
@@ -507,7 +691,19 @@ export default function TypingTutor() {
 
       <div style={{ marginTop:12 }}>
         {showPreview && selectedPractice !== 'manual-create' && (
-          <div style={{ border: '1px solid #ddd', padding: 8, minHeight: 120, maxHeight: 220, overflow: 'auto', whiteSpace: 'pre-wrap' }}>{sourceText || <em>No text loaded</em>}</div>
+          <div>
+            <div style={{ border: '1px solid #ddd', padding: 8, minHeight: 120, maxHeight: 220, overflow: 'auto', whiteSpace: 'pre-wrap' }}>{sourceText || <em>No text loaded</em>}</div>
+            {/* live counts: characters, words, 5-char units */}
+            <div style={{ marginTop: 6, fontSize: 13, color: '#444' }}>
+              {(() => {
+                const s = sourceText || '';
+                const chars = s.length;
+                const words = (s.trim().length === 0) ? 0 : (s.trim().match(/\S+/g) || []).length;
+                const units = Math.ceil(chars / 5);
+                return `${words} words · ${chars} characters · ${units} units (5‑char)`;
+              })()}
+            </div>
+          </div>
         )}
 
         {/* Admin shared preview removed from here — it's available via Select Practice */}
@@ -519,11 +715,28 @@ export default function TypingTutor() {
         <div style={{ marginLeft: 'auto', alignSelf: 'center' }}>{running ? `Time left: ${timeLeft}s` : 'Not running'}</div>
       </div>
 
-      { (typingReady || running) && (
-        <div style={{ marginTop:12 }}>
-          <textarea ref={textareaRef} placeholder="Start typing here..." value={typed} onChange={onTypedChange} onKeyDown={(e)=>{ if (!allowBackspace && e.key === 'Backspace') e.preventDefault(); }} rows={8} style={{ width: '100%', padding:12, borderRadius:8, border:'1px solid #cce', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Monaco, monospace', fontSize:16, lineHeight:1.5, background:'#fcfeff' }} />
-        </div>
-      )}
+      <div style={{ marginTop:12 }}>
+        <textarea
+          ref={textareaRef}
+          placeholder={running ? 'Keep typing...' : 'Click Start Practice to begin'}
+          value={typed}
+          readOnly={!running}
+          onChange={onTypedChange}
+          onKeyDown={(e)=>{ if (!running) { e.preventDefault(); return; } if (!allowBackspace && e.key === 'Backspace') e.preventDefault(); }}
+          rows={8}
+          style={{
+            width: '100%',
+            padding:12,
+            borderRadius:8,
+            border:'1px solid #cce',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Monaco, monospace',
+            fontSize:16,
+            lineHeight:1.5,
+            background: running ? '#fcfeff' : '#f0f4f8',
+            opacity: running ? 1 : 0.7
+          }}
+        />
+      </div>
 
       {result && (
         <div style={{ marginTop:12, border: '1px solid #eee', padding:16, borderRadius:10, background:'#fff', boxShadow:'0 2px 6px rgba(0,0,0,0.03)', maxHeight: '60vh', overflow: 'auto' }}>
@@ -532,11 +745,14 @@ export default function TypingTutor() {
             <div style={{ display:'flex', gap:8 }}>
               <button onClick={exportResultPdf} style={{ padding:'8px 10px' }}>📄 Export PDF</button>
               <button onClick={async ()=>{
-                const shareText = `Typing result: ${result.totalUnits} units, ${result.wrongCount} wrong, ${result.percent}%`;
-                const url = (typeof window !== 'undefined') ? window.location.href : '';
+                const siteName = 'Study GK Hub';
+                const siteUrl = 'https://studygkhub.com/typing-tutor';
+                const siteDesc = 'Typing Tutor — Practice timed tests for Stenographer/Clerk/HCM exams and export detailed PDFs.';
+                const shareText = `${siteName} Typing Result\nWords: ${result.totalWords || 0}\nMistakes: ${result.wrongCount}\nAccuracy: ${result.percent}%\nTime used: ${formatMinutes(result.elapsedMinutes)}\n${siteDesc}\n${siteUrl}\n(Use Export PDF to attach the detailed sheet.)`;
+                const url = siteUrl;
                 try {
                   if (navigator.share) {
-                    await navigator.share({ title: 'Typing result', text: shareText, url });
+                    await navigator.share({ title: `${siteName} Typing Result`, text: shareText, url });
                   } else {
                     await navigator.clipboard.writeText(shareText + '\n' + url);
                     setSavedMsg('Result copied to clipboard');
@@ -547,12 +763,16 @@ export default function TypingTutor() {
           </div>
 
           <div style={{ marginTop:12, display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            <div style={{ padding:12, borderRadius:8, background:'#eef6ff' }}>
+              <div style={{ color:'#666', fontSize:13 }}>Time used</div>
+              <div style={{ fontSize:20, fontWeight:700 }}>{formatMinutes(result.elapsedMinutes)}</div>
+            </div>
             <div style={{ padding:12, borderRadius:8, background:'#fbfbff' }}>
-              <div style={{ color:'#666', fontSize:13 }}>Words (5-char)</div>
-              <div style={{ fontSize:20, fontWeight:700 }}>{result.totalUnits}</div>
+                <div style={{ color:'#666', fontSize:13 }}>Words</div>
+                  <div style={{ fontSize:20, fontWeight:700 }}>{result.totalWords || 0}</div>
             </div>
             <div style={{ padding:12, borderRadius:8, background:'#fff6f6' }}>
-              <div style={{ color:'#666', fontSize:13 }}>Wrong units</div>
+              <div style={{ color:'#666', fontSize:13 }}>Mistakes</div>
               <div style={{ fontSize:20, fontWeight:700, color:'#c33' }}>{result.wrongCount}</div>
             </div>
             <div style={{ padding:12, borderRadius:8, background:'#fffaf0' }}>
@@ -576,7 +796,7 @@ export default function TypingTutor() {
           {typed && typed.length > 0 && (
             <div style={{ marginTop:12 }}>
               <div style={{ fontWeight:700, marginBottom:6 }}>Typed (excerpt)</div>
-              <div style={{ fontFamily:'monospace', background:'#f7f7f7', padding:12, borderRadius:8, maxHeight:220, overflow:'auto', whiteSpace:'pre-wrap' }} dangerouslySetInnerHTML={{ __html: buildSourceHtml(typed, result && result.wrongs) }} />
+              <div style={{ fontFamily:'monospace', background:'#f7f7f7', padding:12, borderRadius:8, maxHeight:220, overflow:'auto', whiteSpace:'pre-wrap' }} dangerouslySetInnerHTML={{ __html: buildSourceHtml(typed, result) }} />
             </div>
           )}
         </div>

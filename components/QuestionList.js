@@ -23,7 +23,7 @@ export default function QuestionList({ initial = [], total = 0, displayLang = nu
   };
 
   return (
-    <div>
+    <div className="question-list">
       {items.map((it) => <QuestionCard key={it.id || it._id || it.slug} item={it} displayLang={displayLang} />)}
       {!disableLoadMore && items.length < total && (
         <div style={{ textAlign: 'center', marginTop: 12 }}>

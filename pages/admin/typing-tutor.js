@@ -93,6 +93,16 @@ export default function AdminTypingTutor() {
           <div style={{ fontWeight:600 }}>Shared Manual Content (visible to all users)</div>
           <input placeholder="Shared title" value={sharedTitle} onChange={e=>setSharedTitle(e.target.value)} style={{ width:'100%', padding:8, marginTop:8 }} />
           <textarea rows={6} value={sharedText} onChange={e=>setSharedText(e.target.value)} style={{ width:'100%', padding:8, marginTop:8 }} />
+          {/* Live counts for the shared text: words, characters, 5-char units */}
+          <div style={{ marginTop:8, fontSize:13, color:'#444' }}>
+            {(() => {
+              const s = sharedText || '';
+              const chars = s.length;
+              const words = (s.trim().length === 0) ? 0 : (s.trim().match(/\S+/g) || []).length;
+              const units = Math.ceil(chars / 5);
+              return `${words} words · ${chars} characters · ${units} units (5‑char)`;
+            })()}
+          </div>
           <div style={{ marginTop:8 }}>
             <div style={{ display:'flex', gap:8, alignItems:'center' }}>
               <label style={{ display:'inline-flex', alignItems:'center', gap:8 }}><input type="checkbox" checked={sharedVisible} onChange={e=>setSharedVisible(e.target.checked)} /> Visible</label>

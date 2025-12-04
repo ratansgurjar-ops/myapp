@@ -89,14 +89,21 @@ body {
 .site-header .hero-inner { width:100%; box-sizing:border-box; }
 
 /* Question card responsive tweaks */
-.question-card { display: flex; gap: 12px; align-items: flex-start; }
+.question-card { display: flex; gap: 12px; align-items: flex-start; width: 100%; box-sizing: border-box; }
 .question-card .qc-main { flex: 1; }
 .question-card .qc-right { width: 220px; margin-left: 12px; flex: 0 0 220px; }
 
+.question-list { display: flex; flex-direction: column; gap: 12px; }
+.question-list .question-card { width: 100%; }
+.question-card ul li { align-items: flex-start; }
+
 @media (max-width: 768px) {
-  .question-card { flex-direction: column; }
+  .question-card { flex-direction: column; display: block !important; margin-bottom: 10px !important; padding: 10px !important; }
   .question-card .qc-right { width: 100%; margin-left: 0; order: 2; }
   .question-card .qc-main { order: 1; }
+  .question-card ul li { margin-top: 6px !important; gap: 6px; }
+  .question-card ul li > div:first-child { width: 28px; }
+  .question-list { gap: 10px; }
 }
 
 /* Ensure question card occupies full available width on small screens */
@@ -109,7 +116,7 @@ body {
 @media (max-width: 480px) {
   .question-card { padding: 8px; margin-bottom: 8px; border-radius: 6px; }
   /* make card take full width and remove extra gaps between cards */
-  .question-card { width: 100%; max-width: 100%; margin-bottom: 6px; }
+  .question-card { width: 100%; max-width: 100%; margin-bottom: 6px !important; }
   .question-card .qc-main { padding: 0; }
   .question-card .qc-right { margin-left: 0; padding-top: 6px; font-size: 13px; }
   .question-card .qc-right button { padding: 6px 8px; font-size: 13px; }
