@@ -574,6 +574,33 @@ export default function TypingTutor() {
     return spans.join(' ');
   };
 
+  // Build a live-preview HTML where the next expected character (based on typed length)
+  // is underlined so user can see typing position in the preview. We render safely
+  // by escaping HTML and showing whitespace as visible entities where appropriate.
+  const buildLivePreview = (text, typedLen = 0) => {
+    if (!text) return '';
+    const out = [];
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      let esc = ch;
+      if (ch === ' ') esc = '&nbsp;';
+      else if (ch === '<') esc = '&lt;';
+      else if (ch === '>') esc = '&gt;';
+      else if (ch === '&') esc = '&amp;';
+      else if (ch === '\n') esc = '<br/>';
+      // underline the character at position typedLen (the next to type),
+      // and also if user is currently at that character show as cursor.
+      if (i === typedLen) {
+        out.push(`<span class=\"tt-cursor\">${esc}</span>`);
+      } else {
+        out.push(esc);
+      }
+    }
+    // if typedLen points to end of text, show a visible cursor at end
+    if (typedLen >= text.length) out.push('<span class="tt-cursor">&nbsp;</span>');
+    return out.join('');
+  };
+
   const onTypedChange = (e) => {
     const val = e.target.value;
     // if not allowing backspace, prevent shrinking
@@ -691,38 +718,36 @@ export default function TypingTutor() {
       <div style={{ marginBottom: 12 }}>
         <label style={{ display:'block', marginBottom:6, fontWeight:600 }}>Select Practice</label>
         <div style={{ position: 'relative', display:'flex', gap:8, alignItems:'center' }}>
-          <div style={{ flex:1 }}>
-            <div role="button" tabIndex={0} onClick={()=>setDropdownOpen(d=>!d)} onKeyDown={(e)=>{ if(e.key==='Enter') setDropdownOpen(d=>!d); }} style={{ padding:8, border:'1px solid #ccc', borderRadius:4, display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer' }}>
-              <div style={{ color: selectedPractice ? '#000' : '#666' }}>
-                {selectedPractice === 'manual-create' ? 'Create Manual Exercise...' : (
-                  selectedPractice && selectedPractice.startsWith('admin:') ? ( (shared && shared[lessonCategory] && shared[lessonCategory].find(it=>`admin:${it.id}`===selectedPractice)) ? (shared[lessonCategory].find(it=>`admin:${it.id}`===selectedPractice).title) : 'Admin Exercise' ) : (
-                    selectedPractice && selectedPractice.startsWith('user:') ? (exercises.find(it=>`user:${it.file}`===selectedPractice)?.title || '') : '-- choose practice --'
-                  )
-                )}
+          <div style={{ marginTop:12 }} className="tt-main">
+            {showPreview && selectedPractice !== 'manual-create' ? (
+              <div className="tt-preview" dangerouslySetInnerHTML={{ __html: (running || typed.length > 0) ? buildLivePreview(sourceText || '', typed.length) : escapeHtml(sourceText || '<em>No text loaded</em>') }} />
+            ) : (
+              <div className="tt-preview">{sourceText || <em>No text loaded</em>}</div>
+            )}
+
+            <div className="tt-typing-area">
+              <textarea
+                ref={textareaRef}
+                placeholder={running ? 'Keep typing...' : 'Click Start Practice to begin'}
+                value={typed}
+                readOnly={!running}
+                onChange={onTypedChange}
+                onKeyDown={(e)=>{ if (!running) { e.preventDefault(); return; } if (!allowBackspace && e.key === 'Backspace') e.preventDefault(); }}
+                rows={12}
+                className="tt-textarea"
+              />
+              {/* live counts: characters, words, 5-char units */}
+              <div style={{ marginTop: 6, fontSize: 13, color: '#444' }}>
+                {(() => {
+                  const s = sourceText || '';
+                  const chars = s.length;
+                  const words = (s.trim().length === 0) ? 0 : (s.trim().match(/\S+/g) || []).length;
+                  const units = Math.ceil(chars / 5);
+                  return `${words} words · ${chars} characters · ${units} units (5‑char)`;
+                })()}
               </div>
-              <div style={{ marginLeft:8 }}>{dropdownOpen ? '▴' : '▾'}</div>
             </div>
-            {dropdownOpen && (
-              <div style={{ position:'absolute', zIndex:50, background:'#fff', border:'1px solid #ddd', width:'100%', marginTop:6, borderRadius:4, maxHeight:220, overflow:'auto' }}>
-                <div onClick={()=>{ 
-                    setDropdownOpen(false);
-                    if(!username) {
-                      setSavedMsg('Please create a username first to save manual exercises. Enter a username and click Save.');
-                      // focus username input if possible
-                      try { const el = document.querySelector('input[placeholder="Username (a-z0-9_-)"]'); if(el) el.focus(); } catch(e) {}
-                      return;
-                    }
-                    setSelectedPractice('manual-create');
-                  }} style={{ padding:8, cursor:'pointer', borderBottom:'1px solid #f1f1f1' }}>Create Manual Exercise...</div>
-                {Array.isArray(shared && shared[lessonCategory]) && (shared[lessonCategory] || []).filter(it=>it.visible).map(it => (
-                  <div key={`admin:${it.id}`} onClick={()=>{ setDropdownOpen(false); handleSelectPractice(`admin:${it.id}`); }} style={{ padding:8, cursor:'pointer', borderBottom:'1px solid #f9f9f9' }}>{it.title || 'Shared Exercise'}</div>
-                ))}
-                {(exercises || []).map(it => (
-                  <div key={it.file} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:8, borderBottom:'1px solid #f9f9f9' }}>
-                    <div onClick={()=>{ setDropdownOpen(false); handleSelectPractice(`user:${it.file}`); }} style={{ cursor:'pointer', flex:1 }}>{it.title ? it.title : ''}</div>
-                    <div>
-                      {/* show delete only when exercises belong to current username and username is set */}
-                      {username && exerciseOwner === username ? (
+          </div>
                         <button onClick={(e)=>{ e.stopPropagation(); deleteExercise(it.file); }} style={{ background:'transparent', border:'none', color:'crimson', cursor:'pointer' }} title="Delete">✕</button>
                       ) : null}
                     </div>
