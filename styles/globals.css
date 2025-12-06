@@ -99,10 +99,11 @@ body {
 
 @media (max-width: 768px) {
   .question-card { flex-direction: column; display: block !important; margin-bottom: 10px !important; padding: 10px !important; }
-  .question-card .qc-right { width: 100%; margin-left: 0; order: 2; }
-  .question-card .qc-main { order: 1; }
+  /* Force right column to stack under main on small screens, override inline widths */
+  .question-card .qc-right { width: 100% !important; margin-left: 0 !important; order: 2 !important; position: static !important; }
+  .question-card .qc-main { order: 1 !important; width: 100% !important; }
   .question-card ul li { margin-top: 6px !important; gap: 6px; }
-  .question-card ul li > div:first-child { width: 28px; }
+  .question-card ul li > div:first-child { width: 48px; }
   .question-list { gap: 10px; }
 }
 
@@ -179,4 +180,27 @@ body {
   .hero-left h2 { font-size:20px; }
   .site-header h1 { font-size: 26px; }
   .site-header .header-subtexts .desc, .site-header .header-subtexts .lead { font-size: 12px; }
+}
+
+/* Typing Tutor - modern compact layout styles */
+.typing-tutor { padding: 10px; max-width: 1100px; margin: 10px auto; font-family: Inter, Arial, sans-serif; color: var(--text); }
+.typing-tutor .tt-top { display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+.typing-tutor .tt-top label, .typing-tutor .tt-top input, .typing-tutor .tt-top select, .typing-tutor .tt-top button { height:36px; }
+.typing-tutor input[type="text"], .typing-tutor input[type="number"], .typing-tutor select, .typing-tutor textarea { border-radius:8px; border:1px solid #dbeafe; padding:8px; box-sizing:border-box; }
+.typing-tutor .tt-preview { border:1px solid #e6eef8; padding:14px; min-height:260px; max-height:380px; overflow:auto; background:#fff; border-radius:10px; box-shadow:0 4px 18px rgba(3,18,35,0.04); }
+.typing-tutor .tt-textarea { width:100%; padding:14px; border-radius:10px; border:1px solid #dbeafe; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; font-size:18px; line-height:1.6; min-height:240px; max-height:520px; resize:vertical; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); }
+.typing-tutor .tt-actions { display:flex; gap:8px; align-items:center; }
+.typing-tutor .tt-actions button, .typing-tutor button { background: linear-gradient(90deg,#0b66c2,#4fb3ff); color:#fff; border:none; padding:10px 14px; border-radius:10px; font-weight:700; cursor:pointer; box-shadow:0 8px 20px rgba(11,102,194,0.12); }
+.typing-tutor .tt-actions button[disabled] { opacity:0.6; cursor:not-allowed; box-shadow:none; }
+.typing-tutor .tt-result { margin-top:14px; padding:18px; border-radius:14px; background:#fff; box-shadow:0 12px 32px rgba(3,18,35,0.06); }
+.typing-tutor .tt-result .result-header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.typing-tutor .tt-stats-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin-top:12px; }
+.typing-tutor .tt-status-pill { padding:8px 10px; border-radius:10px; font-weight:700; display:inline-flex; align-items:center; gap:8px; }
+.typing-tutor .tt-status-pass { background:#e8fff0; color:#0a5f3c; border:1px solid #dff6e6; }
+.typing-tutor .tt-status-fail { background:#fff0f0; color:#8a1f1f; border:1px solid #f6d7d7; }
+
+@media (max-width: 680px) {
+  .typing-tutor .tt-top { gap:6px; }
+  .typing-tutor .tt-preview { min-height:200px; max-height:320px; }
+  .typing-tutor .tt-textarea { min-height:200px; }
 }
