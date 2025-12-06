@@ -642,9 +642,9 @@ export default function TypingTutor() {
   // previously persisted saved-list owner logic removed; dropdown handles saved list now
 
   return (
-    <div style={{ padding: 12 }}>
+    <div className="typing-tutor">
       <h2>Typing Tutor</h2>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12, overflowX: 'auto', paddingBottom: 6 }}>
+      <div className="tt-top">
         <label style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap:8, whiteSpace: 'nowrap' }}>
           <input type="checkbox" checked={isExisting} onChange={e=>setIsExisting(e.target.checked)} />
           <span style={{ fontSize:14 }}>Existing user</span>
@@ -775,7 +775,7 @@ export default function TypingTutor() {
       <div style={{ marginTop:12 }}>
         {showPreview && selectedPractice !== 'manual-create' && (
           <div>
-            <div style={{ border: '1px solid #ddd', padding: 8, minHeight: 120, maxHeight: 220, overflow: 'auto', whiteSpace: 'pre-wrap' }}>{sourceText || <em>No text loaded</em>}</div>
+            <div className="tt-preview">{sourceText || <em>No text loaded</em>}</div>
             {/* live counts: characters, words, 5-char units */}
             <div style={{ marginTop: 6, fontSize: 13, color: '#444' }}>
               {(() => {
@@ -792,10 +792,10 @@ export default function TypingTutor() {
         {/* Admin shared preview removed from here — it's available via Select Practice */}
       </div>
 
-      <div style={{ marginTop:12, display:'flex', gap:8 }}>
+      <div style={{ marginTop:12, display:'flex', gap:8, alignItems:'center' }} className="tt-actions">
         <button onClick={startTest} disabled={!sourceText || running || !typingReady}>Start Practice</button>
         <button onClick={finishTest} disabled={!running}>Finish Now</button>
-        <div style={{ marginLeft: 'auto', alignSelf: 'center' }}>{running ? `Time left: ${timeLeft}s` : 'Not running'}</div>
+        <div style={{ marginLeft: 'auto', alignSelf: 'center', color:'#666', fontSize:13 }}>{running ? `Time left: ${timeLeft}s` : 'Not running'}</div>
       </div>
 
       <div style={{ marginTop:12 }}>
@@ -806,18 +806,8 @@ export default function TypingTutor() {
           readOnly={!running}
           onChange={onTypedChange}
           onKeyDown={(e)=>{ if (!running) { e.preventDefault(); return; } if (!allowBackspace && e.key === 'Backspace') e.preventDefault(); }}
-          rows={8}
-          style={{
-            width: '100%',
-            padding:12,
-            borderRadius:8,
-            border:'1px solid #cce',
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Monaco, monospace',
-            fontSize:16,
-            lineHeight:1.5,
-            background: running ? '#fcfeff' : '#f0f4f8',
-            opacity: running ? 1 : 0.7
-          }}
+          rows={12}
+          className="tt-textarea"
         />
       </div>
 
@@ -845,19 +835,16 @@ export default function TypingTutor() {
             </div>
           </div>
 
-          {/* Pass/Fail and remark */}
-          <div style={{ marginTop:10, display:'flex', gap:12, alignItems:'center' }}>
-            <div style={{ padding:'8px 10px', borderRadius:8, background: (result.pass ? '#e8fff0' : '#fff0f0'), border: '1px solid #e5e5e5' }}>
+          {/* Pass/Fail shown with remark in brackets next to the status */}
+          <div style={{ marginTop:10 }}>
+            <div className={`tt-status-pill ${result.pass ? 'tt-status-pass' : 'tt-status-fail'}`}>
               <div style={{ fontSize:12, color:'#666' }}>Status</div>
-              <div style={{ fontSize:16, fontWeight:700 }}>{result.pass ? 'Pass' : 'Fail'}</div>
-            </div>
-            <div style={{ padding:'8px 10px', borderRadius:8, background:'#fffaf0', border: '1px solid #f0e8d8' }}>
-              <div style={{ fontSize:12, color:'#666' }}>Remark</div>
-              <div style={{ fontSize:16, fontWeight:700 }}>{result.remark}</div>
+              <div style={{ fontSize:16 }}>{result.pass ? 'Pass' : 'Fail'}</div>
+              {result.remark ? <div style={{ fontSize:13, color:'#444' }}>({result.remark})</div> : null}
             </div>
           </div>
 
-          <div style={{ marginTop:12, display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+          <div style={{ marginTop:12 }} className="tt-stats-grid">
             <div style={{ padding:12, borderRadius:8, background:'#eef6ff' }}>
               <div style={{ color:'#666', fontSize:13 }}>Time used</div>
               <div style={{ fontSize:20, fontWeight:700 }}>{formatMinutes(result.elapsedMinutes)}</div>
@@ -884,7 +871,10 @@ export default function TypingTutor() {
             </div>
             <div style={{ padding:12, borderRadius:8, background:'#f7fff6' }}>
               <div style={{ color:'#666', fontSize:13 }}>Net WPM</div>
-              <div style={{ fontSize:20, fontWeight:700 }}>{result.netWpm || 0}</div>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div style={{ fontSize:20, fontWeight:700 }}>{result.netWpm || 0}</div>
+                {result.remark ? <div style={{ fontSize:13, color:'#444', marginLeft:8 }}>({result.remark})</div> : null}
+              </div>
             </div>
           </div>
 

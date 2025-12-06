@@ -20,18 +20,18 @@ export default function TypingTutorPage() {
         <meta name="twitter:card" content="summary" />
       </Head>
 
-      <div style={{ width: '100%', background: '#f7fbff', padding: '18px 12px', boxSizing: 'border-box' }}>
+      <div style={{ width: '100%', background: '#f7fbff', padding: '8px 12px', boxSizing: 'border-box' }}>
         <div style={{ maxWidth: 980, margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
-          <div style={{ color: '#003366', lineHeight: 1.25 }}>
-            <div style={{ margin: '6px 0', fontSize: 22, fontWeight: 600 }}>Typing Practice for Stenographer, Clerk & Data Entry</div>
-            <div style={{ margin: '6px 0 14px 0', fontSize: 15 }}>{desc}</div>
+          <div style={{ color: '#003366', lineHeight: 1.2 }}>
+            <div style={{ margin: '4px 0', fontSize: 18, fontWeight: 700 }}>Typing Practice for Stenographer, Clerk & Data Entry</div>
+            <div style={{ margin: '4px 0 8px 0', fontSize: 14, color:'#033' }}>{desc}</div>
           </div>
         </div>
       </div>
 
       <div className="container layout">
         <main style={{ flex: 1 }}>
-          <section style={{ marginTop: 8 }}>
+          <section style={{ marginTop: 0 }}>
             <TypingTutor />
           </section>
         </main>
