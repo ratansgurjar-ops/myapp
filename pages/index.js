@@ -3,7 +3,7 @@ import Head from 'next/head';
 import QuestionList from '../components/QuestionList';
 import NewsTicker from '../components/NewsTicker';
 
-export default function Home({ questions, total, news, categories = [], initialQ = '', initialCategory = '', initialChapter = '', initialPage = 1, initialLimit = 10 }) {
+export default function Home({ questions, total, news, categories = [], chapters = [], initialQ = '', initialCategory = '', initialChapter = '', initialPage = 1, initialLimit = 10 }) {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(initialCategory || '');
   const [selectedChapter, setSelectedChapter] = useState(initialChapter || '');
@@ -69,7 +69,7 @@ export default function Home({ questions, total, news, categories = [], initialQ
               </select>
               <select value={selectedChapter} onChange={e=>setSelectedChapter(e.target.value)} style={{padding:6,fontSize:12}}>
                 <option value="">All Chapters</option>
-                {Array.from(new Set(questions.map(i=>i.chapter_name).filter(Boolean))).map(ch => (<option key={ch} value={ch}>{ch}</option>))}
+                {chapters.map(ch => (<option key={ch} value={ch}>{ch}</option>))}
               </select>
               <select value={displayLang} onChange={e=>setDisplayLang(e.target.value)} style={{marginLeft:'auto',padding:6,fontSize:12}}>
                 <option value="both">Both</option>
@@ -218,7 +218,19 @@ export async function getServerSideProps(context) {
     updatedAt: n.updatedAt && n.updatedAt.toISOString ? n.updatedAt.toISOString() : (n.updatedAt || null)
   }));
 
-  // build categories from questions
-  const cats = Array.from(new Set(questions.map(i => i.category).filter(Boolean)));
-  return { props: { questions, total: qd.total || 0, news, categories: cats, initialQ: q, initialCategory: category, initialChapter: chapter, initialPage: pageNum, initialLimit: limit } };
+  // fetch distinct categories and chapters for the filters (use DB-level DISTINCT)
+  let categoriesList = [];
+  let chaptersList = [];
+  try {
+    categoriesList = await Question.findDistinct('category');
+  } catch (e) {
+    categoriesList = Array.from(new Set(questions.map(i => i.category).filter(Boolean)));
+  }
+  try {
+    chaptersList = await Question.findDistinct('chapter_name');
+  } catch (e) {
+    chaptersList = Array.from(new Set(questions.map(i => i.chapter_name).filter(Boolean)));
+  }
+
+  return { props: { questions, total: qd.total || 0, news, categories: categoriesList, chapters: chaptersList, initialQ: q, initialCategory: category, initialChapter: chapter, initialPage: pageNum, initialLimit: limit } };
 }

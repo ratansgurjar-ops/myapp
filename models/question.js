@@ -89,3 +89,15 @@ async function incrementHits(id) {
 }
 
 module.exports = { findQuestions, createQuestion, bulkInsert, findBySlug, incrementHits, flagQuestion, addFeedback };
+
+async function findDistinct(field) {
+  const allowed = ['category', 'chapter_name'];
+  if (!allowed.includes(field)) return [];
+  const { getPool } = require('../lib/db');
+  const pool = await getPool();
+  const [rows] = await pool.query(`SELECT DISTINCT ?? AS val FROM questions WHERE ?? IS NOT NULL AND ?? != '' ORDER BY val`, [field, field, field]);
+  return rows.map(r => r.val).filter(Boolean);
+}
+
+// expose the helper
+module.exports.findDistinct = findDistinct;
