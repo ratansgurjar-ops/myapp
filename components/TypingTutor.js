@@ -718,6 +718,46 @@ export default function TypingTutor() {
       <div style={{ marginBottom: 12 }}>
         <label style={{ display:'block', marginBottom:6, fontWeight:600 }}>Select Practice</label>
         <div style={{ position: 'relative', display:'flex', gap:8, alignItems:'center' }}>
+          <div style={{ flex: 1 }}>
+            <div role="button" tabIndex={0} onClick={()=>setDropdownOpen(d=>!d)} onKeyDown={(e)=>{ if(e.key==='Enter') setDropdownOpen(d=>!d); }} style={{ padding:8, border:'1px solid #ccc', borderRadius:4, display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer' }}>
+              <div style={{ color: selectedPractice ? '#000' : '#666' }}>
+                {selectedPractice === 'manual-create' ? 'Create Manual Exercise...' : (
+                  selectedPractice && selectedPractice.startsWith('admin:') ? (
+                    (shared && shared[lessonCategory] && shared[lessonCategory].find(it=>`admin:${it.id}`===selectedPractice)) ? (shared[lessonCategory].find(it=>`admin:${it.id}`===selectedPractice).title) : 'Admin Exercise'
+                  ) : (
+                    selectedPractice && selectedPractice.startsWith('user:') ? (exercises.find(it=>`user:${it.file}`===selectedPractice)?.title || '') : '-- choose practice --'
+                  )
+                )}
+              </div>
+              <div style={{ marginLeft:8 }}>{dropdownOpen ? '▴' : '▾'}</div>
+            </div>
+            {dropdownOpen && (
+              <div style={{ position:'absolute', zIndex:50, background:'#fff', border:'1px solid #ddd', width:'100%', marginTop:6, borderRadius:4, maxHeight:220, overflow:'auto' }}>
+                <div onClick={()=>{ 
+                    setDropdownOpen(false);
+                    if(!username) {
+                      setSavedMsg('Please create a username first to save manual exercises. Enter a username and click Save.');
+                      try { const el = document.querySelector('input[placeholder="Username (a-z0-9_-)" ]'); if(el) el.focus(); } catch(e) {}
+                      return;
+                    }
+                    setSelectedPractice('manual-create');
+                  }} style={{ padding:8, cursor:'pointer', borderBottom:'1px solid #f1f1f1' }}>Create Manual Exercise...</div>
+                {Array.isArray(shared && shared[lessonCategory]) && (shared[lessonCategory] || []).filter(it=>it.visible).map(it => (
+                  <div key={`admin:${it.id}`} onClick={()=>{ setDropdownOpen(false); handleSelectPractice(`admin:${it.id}`); }} style={{ padding:8, cursor:'pointer', borderBottom:'1px solid #f9f9f9' }}>{it.title || 'Shared Exercise'}</div>
+                ))}
+                {(exercises || []).map(it => (
+                  <div key={it.file} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:8, borderBottom:'1px solid #f9f9f9' }}>
+                    <div onClick={()=>{ setDropdownOpen(false); handleSelectPractice(`user:${it.file}`); }} style={{ cursor:'pointer', flex:1 }}>{it.title ? it.title : ''}</div>
+                    <div>
+                      {username && exerciseOwner === username ? (
+                        <button onClick={(e)=>{ e.stopPropagation(); deleteExercise(it.file); }} style={{ background:'transparent', border:'none', color:'crimson', cursor:'pointer' }} title="Delete">✕</button>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <div style={{ marginTop:12 }} className="tt-main">
             {showPreview && selectedPractice !== 'manual-create' ? (
               <div className="tt-preview" dangerouslySetInnerHTML={{ __html: (running || typed.length > 0) ? buildLivePreview(sourceText || '', typed.length) : escapeHtml(sourceText || '<em>No text loaded</em>') }} />
@@ -747,14 +787,6 @@ export default function TypingTutor() {
                 })()}
               </div>
             </div>
-          </div>
-                        <button onClick={(e)=>{ e.stopPropagation(); deleteExercise(it.file); }} style={{ background:'transparent', border:'none', color:'crimson', cursor:'pointer' }} title="Delete">✕</button>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
             <button onClick={()=>{ if (!selectedPractice) { setSavedMsg('Choose a practice first'); return; } handleSelectPractice(selectedPractice); }} style={{ padding:'8px 12px' }}>Practice</button>
