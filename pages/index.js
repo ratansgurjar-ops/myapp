@@ -3,7 +3,7 @@ import Head from 'next/head';
 import QuestionList from '../components/QuestionList';
 import NewsTicker from '../components/NewsTicker';
 
-export default function Home({ questions, total, news, categories = [], initialQ = '', initialCategory = '', initialChapter = '', initialPage = 1, initialLimit = 10 }) {
+export default function Home({ questions, total, news, categories = [], chapters = [], initialQ = '', initialCategory = '', initialChapter = '', initialPage = 1, initialLimit = 10 }) {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(initialCategory || '');
   const [selectedChapter, setSelectedChapter] = useState(initialChapter || '');
@@ -63,13 +63,40 @@ export default function Home({ questions, total, news, categories = [], initialQ
                 const url = `/?${params.toString()}`;
                 window.location.href = url;
               }} style={{padding:'6px 8px',fontSize:12}}>Search</button>
-              <select value={selectedCategory} onChange={e=>setSelectedCategory(e.target.value)} style={{padding:6,fontSize:12,marginLeft:8}}>
+              <select value={selectedCategory} onChange={e=>{
+                const val = e.target.value;
+                setSelectedCategory(val);
+                const params = new URLSearchParams();
+                if (search) params.set('q', search);
+                else if (initialQ) params.set('q', initialQ);
+                if (val) params.set('category', val);
+                else if (initialCategory) {
+                  // don't set category param when empty
+                }
+                if (selectedChapter) params.set('chapter', selectedChapter);
+                else if (initialChapter) params.set('chapter', initialChapter);
+                params.set('page', '1');
+                const url = params.toString() ? `/?${params.toString()}` : '/';
+                window.location.href = url;
+              }} style={{padding:6,fontSize:12,marginLeft:8}}>
                 <option value="">All Categories</option>
                 {categories.map(c => (<option key={c} value={c}>{c}</option>))}
               </select>
-              <select value={selectedChapter} onChange={e=>setSelectedChapter(e.target.value)} style={{padding:6,fontSize:12}}>
+              <select value={selectedChapter} onChange={e=>{
+                const val = e.target.value;
+                setSelectedChapter(val);
+                const params = new URLSearchParams();
+                if (search) params.set('q', search);
+                else if (initialQ) params.set('q', initialQ);
+                if (selectedCategory) params.set('category', selectedCategory);
+                else if (initialCategory) params.set('category', initialCategory);
+                if (val) params.set('chapter', val);
+                params.set('page', '1');
+                const url = params.toString() ? `/?${params.toString()}` : '/';
+                window.location.href = url;
+              }} style={{padding:6,fontSize:12}}>
                 <option value="">All Chapters</option>
-                {Array.from(new Set(questions.map(i=>i.chapter_name).filter(Boolean))).map(ch => (<option key={ch} value={ch}>{ch}</option>))}
+                {chapters.map(ch => (<option key={ch} value={ch}>{ch}</option>))}
               </select>
               <select value={displayLang} onChange={e=>setDisplayLang(e.target.value)} style={{marginLeft:'auto',padding:6,fontSize:12}}>
                 <option value="both">Both</option>
@@ -218,7 +245,18 @@ export async function getServerSideProps(context) {
     updatedAt: n.updatedAt && n.updatedAt.toISOString ? n.updatedAt.toISOString() : (n.updatedAt || null)
   }));
 
-  // build categories from questions
-  const cats = Array.from(new Set(questions.map(i => i.category).filter(Boolean)));
-  return { props: { questions, total: qd.total || 0, news, categories: cats, initialQ: q, initialCategory: category, initialChapter: chapter, initialPage: pageNum, initialLimit: limit } };
+  // fetch all available categories and chapters for filters
+  let cats = [];
+  let chaps = [];
+  try {
+    const meta = await Question.listCategoriesAndChapters();
+    cats = meta.categories || [];
+    chaps = meta.chapters || [];
+  } catch (e) {
+    // fallback: build from returned questions
+    cats = Array.from(new Set(questions.map(i => i.category).filter(Boolean)));
+    chaps = Array.from(new Set(questions.map(i => i.chapter_name).filter(Boolean)));
+  }
+
+  return { props: { questions, total: qd.total || 0, news, categories: cats, chapters: chaps, initialQ: q, initialCategory: category, initialChapter: chapter, initialPage: pageNum, initialLimit: limit } };
 }

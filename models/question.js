@@ -89,3 +89,16 @@ async function incrementHits(id) {
 }
 
 module.exports = { findQuestions, createQuestion, bulkInsert, findBySlug, incrementHits, flagQuestion, addFeedback };
+
+async function listCategoriesAndChapters() {
+  const { getPool } = require('../lib/db');
+  const pool = await getPool();
+  const [catRows] = await pool.query("SELECT DISTINCT category FROM questions WHERE active = 1 AND category IS NOT NULL AND category <> '' ORDER BY category ASC");
+  const [chapRows] = await pool.query("SELECT DISTINCT chapter_name FROM questions WHERE active = 1 AND chapter_name IS NOT NULL AND chapter_name <> '' ORDER BY chapter_name ASC");
+  const categories = (catRows || []).map(r => r.category).filter(Boolean);
+  const chapters = (chapRows || []).map(r => r.chapter_name).filter(Boolean);
+  return { categories, chapters };
+}
+
+// append to exports (add compatibility with require style used across the app)
+module.exports.listCategoriesAndChapters = listCategoriesAndChapters;

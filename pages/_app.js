@@ -2,6 +2,7 @@ import '../styles/globals.css';
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import SiteHeader from '../components/SiteHeader';
+import GlobalFeedback from '../components/GlobalFeedback';
 
 function MyApp({ Component, pageProps }) {
   const [theme, setTheme] = useState('light');
@@ -40,6 +41,7 @@ function MyApp({ Component, pageProps }) {
         <button onClick={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}>{theme === 'light' ? 'Dark' : 'Light'}</button>
       </div>
       <Component {...pageProps} />
+      {!isAdminRoute && <GlobalFeedback />}
     </div>
   );
 }

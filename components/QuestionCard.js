@@ -4,8 +4,7 @@ export default function QuestionCard({ item, displayLang: displayLangProp }) {
   const [show, setShow] = useState(false);
   const [flagging, setFlagging] = useState(false);
   const [flags, setFlags] = useState(item.flags_count || 0);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [feedbackText, setFeedbackText] = useState('');
+  
   const [displayLang, setDisplayLang] = useState(displayLangProp || 'both'); // 'english' | 'hindi' | 'both'
 
   // keep local displayLang in sync when parent prop changes
@@ -21,12 +20,7 @@ export default function QuestionCard({ item, displayLang: displayLangProp }) {
     setFlagging(false);
   };
 
-  const submitFeedback = async () => {
-    if (!feedbackText) return;
-    await fetch('/api/questions/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id, content: feedbackText }) });
-    setFeedbackText('');
-    setFeedbackOpen(false);
-  };
+  
 
   return (
     <div className="question-card" style={{ border: '1px solid #eee', padding: 12, marginBottom: 12, borderRadius: 6 }}>
@@ -44,9 +38,7 @@ export default function QuestionCard({ item, displayLang: displayLangProp }) {
               <div style={{ fontWeight: 700 }}>{item.question_english || item.question_hindi || ''}</div>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button title="Flag this question" onClick={onFlag} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>🚩 <small>{flags}</small></button>
-          </div>
+          
         </div>
         { !displayLangProp && (
           <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
@@ -88,18 +80,9 @@ export default function QuestionCard({ item, displayLang: displayLangProp }) {
       </div>
 
       <div className="qc-right" style={{ width: 220, marginLeft: 12 }}>
-        <div style={{ fontSize: 13, marginBottom: 6 }}>Reviews ({item.feedback_count || 0})</div>
-        <div>
-          <button onClick={() => setFeedbackOpen((s) => !s)} style={{ marginBottom: 8 }}>{feedbackOpen ? 'Close' : 'Write Review'}</button>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button title="Flag this question" onClick={onFlag} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>🚩 <small>{flags}</small></button>
         </div>
-        {feedbackOpen && (
-          <div>
-            <textarea value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} rows={3} style={{ width: '100%', padding: 8 }} placeholder="Write review..." />
-            <div style={{ marginTop: 6 }}>
-              <button onClick={submitFeedback}>Submit</button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -2,6 +2,23 @@ import React, { useState, useRef, useEffect } from 'react';
 
 const TOKEN_REGEX = /(\s+|[A-Za-z0-9]+|[^\sA-Za-z0-9])/g;
 
+// Normalize token text for comparison: map smart quotes, dashes, NBSPs etc to canonical chars
+const normalizeForCompare = (s) => {
+  if (s == null) return '';
+  return String(s)
+    // normalize various double quotes to straight double-quote
+    .replace(/[\u201C\u201D\u201E\u201F\u00AB\u00BB]/g, '"')
+    // normalize curly single quotes/apostrophes to straight
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    // normalize en-dash/em-dash to hyphen
+    .replace(/[\u2013\u2014\u2012\u2010]/g, '-')
+    // normalize non-breaking space to normal space
+    .replace(/\u00A0/g, ' ')
+    // collapse multiple spaces (for comparison purposes)
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
 const classifyTokenKind = (value) => {
   if (!value) return 'word';
   if (/^\s+$/.test(value)) return 'space';
@@ -19,6 +36,7 @@ const tokenizeWithIndices = (s) => {
     res.push({
       token: value,
       word: value,
+      cmp: classifyTokenKind(value) === 'space' ? value.replace(/\u00A0/g, ' ') : normalizeForCompare(value),
       start: match.index,
       end: match.index + value.length,
       kind: classifyTokenKind(value)
@@ -41,7 +59,7 @@ const alignWords = (expectedTokens, typedTokens) => {
       dp[i][j] = Math.min(
         dp[i - 1][j] + 1,
         dp[i][j - 1] + 1,
-        dp[i - 1][j - 1] + (expectedTokens[i - 1].word === typedTokens[j - 1].word ? 0 : 1)
+        dp[i - 1][j - 1] + (expectedTokens[i - 1].cmp === typedTokens[j - 1].cmp ? 0 : 1)
       );
     }
   }
@@ -52,9 +70,9 @@ const alignWords = (expectedTokens, typedTokens) => {
     if (
       i > 0 &&
       j > 0 &&
-      dp[i][j] === dp[i - 1][j - 1] + (expectedTokens[i - 1].word === typedTokens[j - 1].word ? 0 : 1)
+      dp[i][j] === dp[i - 1][j - 1] + (expectedTokens[i - 1].cmp === typedTokens[j - 1].cmp ? 0 : 1)
     ) {
-      if (expectedTokens[i - 1].word === typedTokens[j - 1].word) {
+      if (expectedTokens[i - 1].cmp === typedTokens[j - 1].cmp) {
         ops.unshift({ type: 'eq', exp: expectedTokens[i - 1], got: typedTokens[j - 1], expIndex: i - 1, gotIndex: j - 1 });
       } else {
         ops.unshift({ type: 'sub', exp: expectedTokens[i - 1], got: typedTokens[j - 1], expIndex: i - 1, gotIndex: j - 1 });
@@ -80,7 +98,7 @@ const escapeHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '
 const formatWhitespaceTokenHtml = (token) => {
   if (!token) return '';
   return token.split('').map((ch) => {
-    if (ch === ' ') return '&middot;';
+    if (ch === ' ') return '&nbsp;';
     if (ch === '\t') return '<span style="color:#666">⇥</span>';
     if (ch === '\n') return '<span style="color:#666">↵</span><br/>';
     return escapeHtml(ch);
@@ -275,26 +293,68 @@ export default function TypingTutor() {
     setRunning(false);
     // compute stats based only on what user typed (ignore lesson length for totals)
     const expected = sourceText || '';
-    const typedText = typed || '';
-    const charsTyped = typedText.length;
+    const rawTyped = typed || '';
+
+    // Token-aware trimming: tokenize the raw typed text and find a safe trim
+    // boundary. We look for the last sentence terminator (., !, ?) or a
+    // newline token, but if that terminator is a standalone punctuation token
+    // (common when users type `word.`), trimming at the punctuation can still
+    // cause alignment cascades. Prefer trimming at the last word token that
+    // occurs before (or at) the terminator so we don't include trailing
+    // punctuation-only tokens in the analysis.
+    const typedTokensAll = tokenizeWithIndices(rawTyped);
+    let lastTermTokenIndex = -1;
+    for (let i = typedTokensAll.length - 1; i >= 0; i--) {
+      const tk = typedTokensAll[i];
+      if (!tk) continue;
+      if (tk.kind === 'punct' && /[.!?]/.test(tk.token)) { lastTermTokenIndex = i; break; }
+      if (tk.kind === 'space' && tk.token && tk.token.indexOf('\n') >= 0) { lastTermTokenIndex = i; break; }
+    }
+    let trimTokenIndex = -1;
+    if (lastTermTokenIndex >= 0) {
+      // If the terminator token itself is a word (rare), keep it. If it's
+      // punctuation/space, find the last word token before or at that index.
+      const termTk = typedTokensAll[lastTermTokenIndex];
+      if (termTk && termTk.kind === 'word') {
+        trimTokenIndex = lastTermTokenIndex;
+      } else {
+        for (let j = lastTermTokenIndex; j >= 0; j--) {
+          if (typedTokensAll[j] && typedTokensAll[j].kind === 'word') { trimTokenIndex = j; break; }
+        }
+      }
+      // If no word found (only punctuation), fall back to terminator end.
+      if (trimTokenIndex === -1) trimTokenIndex = lastTermTokenIndex;
+    }
+    const typedForAnalysis = (trimTokenIndex >= 0) ? rawTyped.slice(0, typedTokensAll[trimTokenIndex].end) : rawTyped;
+    const charsTyped = typedForAnalysis.length;
 
     // Compare by words instead of fixed 5-character units. This avoids cascading errors
     // when a user misses a character and shifts the remainder. We treat any word with
     // any mismatch (missing/extra/typo) as ONE wrong word.
     const expTokens = tokenizeWithIndices(expected);
-    const gotTokens = tokenizeWithIndices(typedText);
+    const gotTokens = tokenizeWithIndices(typedForAnalysis);
     const ops = alignWords(expTokens, gotTokens);
-    const typedCoverageEnd = typedText.length;
+    // Determine the last expected token index that corresponds to any typed token.
+    // Determine expected token indices that were actually touched by typed tokens.
+    // Use presence of `got` object rather than gotIndex to be robust against undefined indexes.
+    const expIndicesWithGot = ops.filter(o => o.got && typeof o.expIndex === 'number').map(o => o.expIndex);
+    const maxExpTouched = expIndicesWithGot.length ? Math.max(...expIndicesWithGot) : -1;
+    // Keep deletions only if their expected index falls within the part of the expected text the user actually reached.
     const trimmedOps = ops.filter(op => {
       if (op.type !== 'del') return true;
-      const expStart = op.exp && typeof op.exp.start === 'number' ? op.exp.start : null;
-      return expStart !== null && expStart < typedCoverageEnd;
+      return (typeof op.expIndex === 'number') && (op.expIndex <= maxExpTouched);
     });
 
     // build wrongs: count substitutions, insertions, and in-text deletions as mistakes (one per token)
     const wrongWords = [];
     trimmedOps.forEach((op, idx) => {
       if (op.type === 'sub') {
+        // If substitution differs only by surrounding punctuation/spacing, treat as correct
+        const stripPunct = (s) => (s || '').replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, '');
+        const expCmp = op.exp ? (op.exp.cmp || '') : '';
+        const gotCmp = op.got ? (op.got.cmp || '') : '';
+        if (stripPunct(expCmp) === stripPunct(gotCmp)) return; // only punctuation/space difference -> ignore
+
         wrongWords.push({
           idx,
           type: 'sub',
@@ -308,6 +368,8 @@ export default function TypingTutor() {
           gotKind: op.got ? op.got.kind : 'word'
         });
       } else if (op.type === 'ins') {
+        // don't count pure space insertions as mistakes (spaces between words shouldn't be flagged)
+        if (op.got && op.got.kind === 'space') return;
         wrongWords.push({
           idx,
           type: 'ins',
@@ -321,10 +383,9 @@ export default function TypingTutor() {
           gotKind: op.got ? op.got.kind : 'word'
         });
       } else if (op.type === 'del') {
+        // deletions of pure punctuation/space should not be counted as mistakes
         const expToken = op.exp;
-        const expStart = expToken ? expToken.start : null;
-        const withinTypedRange = typeof expStart === 'number' ? expStart < typedCoverageEnd : false;
-        if (withinTypedRange && expToken) {
+        if (expToken && expToken.kind !== 'punct' && expToken.kind !== 'space') {
           wrongWords.push({
             idx,
             type: 'del',
@@ -361,6 +422,33 @@ export default function TypingTutor() {
 
     const accuracyRatio = totalWordsTyped > 0 ? (totalWordsTyped - effectiveWrong) / totalWordsTyped : 0;
     const percent = totalWordsTyped > 0 ? Math.max(0, Math.round(accuracyRatio * 100)) : 0;
+
+    // Determine pass/fail and remark text according to requested rules.
+    // Mapping (modern, English):
+    // - percent >= 50: Pass, Remark: Excellent
+    // - 40 <= percent < 50: Pass, Remark: Very Good
+    // - 35 <= percent < 40: Pass, Remark: Good
+    // - 25 <= percent < 35: Fail, Remark: Improve your practice
+    // - percent < 25: Fail, Remark: You need to work very hard
+    let pass = false;
+    let remark = '';
+    if (percent >= 50) {
+      pass = true;
+      remark = 'Excellent';
+    } else if (percent >= 40) {
+      pass = true;
+      remark = 'Very Good';
+    } else if (percent >= 35) {
+      pass = true;
+      remark = 'Good';
+    } else if (percent >= 25) {
+      pass = false;
+      remark = 'Improve your practice';
+    } else {
+      pass = false;
+      remark = 'You need to work very hard';
+    }
+
     setResult({
       charsTyped,
       totalWords: totalWordsTyped,
@@ -368,12 +456,19 @@ export default function TypingTutor() {
       allowedMistakes,
       effectiveWrong,
       percent,
+      pass,
+      remark,
       wrongs: wrongWords,
       grossWpm: Math.round(grossWpm),
       netWpm,
       elapsedSeconds,
       elapsedMinutes: minutes,
-      ops: trimmedOps
+      ops: trimmedOps,
+      // typedExcerpt holds the trimmed typed text (up to last sentence) so
+      // UI and exports don't include trailing mistakes after the last sentence.
+      typedExcerpt: typedForAnalysis,
+      // fullTyped keeps the actual textarea content unchanged
+      fullTyped: rawTyped
     });
   };
 
@@ -389,30 +484,18 @@ export default function TypingTutor() {
     lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Gross WPM: <strong>${result.grossWpm || 0}</strong></p>`);
     lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Net WPM: <strong>${result.netWpm || 0}</strong></p>`);
     lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Percentage: <strong>${result.percent}%</strong></p>`);
+    // include pass/fail and remark if present
+    if (typeof result.pass === 'boolean') {
+      lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Status: <strong>${result.pass ? 'Pass' : 'Fail'}</strong></p>`);
+    }
+    if (result.remark) {
+      lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Remark: <strong>${escapeHtml(result.remark)}</strong></p>`);
+    }
     lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Time used: <strong>${formatMinutes(result.elapsedMinutes)}</strong></p>`);
-    if (Array.isArray(result.wrongs) && result.wrongs.length > 0) {
-      lines.push('<h3 style="font-family:Arial,Helvetica,sans-serif">Mistakes</h3>');
-      lines.push('<table style="width:100%;border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:14px">');
-      lines.push('<thead><tr><th style="text-align:left;border-bottom:1px solid #e5e5e5;padding:6px">Typed</th><th style="text-align:left;border-bottom:1px solid #e5e5e5;padding:6px">Expected</th><th style="text-align:left;border-bottom:1px solid #e5e5e5;padding:6px">Issue</th></tr></thead>');
-      lines.push('<tbody>');
-      result.wrongs.forEach(w => {
-        const exp = formatTokenHtml(w.exp, w.expKind, { exposeWhitespace: true }) || '<em>—</em>';
-        const got = formatTokenHtml(w.got, w.gotKind, { exposeWhitespace: true }) || '<em>—</em>';
-        const issue = w.type === 'ins' ? 'Extra input' : (w.type === 'del' ? 'Missing' : 'Mismatch');
-        lines.push(`<tr><td style="padding:6px;border-bottom:1px solid #f5f5f5">${got}</td><td style="padding:6px;border-bottom:1px solid #f5f5f5">${exp}</td><td style="padding:6px;border-bottom:1px solid #f5f5f5">${issue}</td></tr>`);
-      });
-      lines.push('</tbody></table>');
-    }
-    // optionally include the source text truncated for completeness
-    // include typed excerpt only
-    const typedText = (typeof typed !== 'undefined' && typed) ? typed : '';
-    if (typedText) {
-      const excerptHtml = buildSourceHtml(typedText, result);
-      if (excerptHtml) {
-        lines.push('<h3 style="font-family:Arial,Helvetica,sans-serif">Typed (excerpt)</h3>');
-        lines.push(`<pre style="font-family:monospace;white-space:pre-wrap;background:#f7f7f7;padding:10px;border-radius:6px">${excerptHtml}</pre>`);
-      }
-    }
+    // NOTE: Per settings, mistakes and the raw typed excerpt are intentionally
+    // omitted from the exported PDF to avoid showing trailing typing errors.
+    // We still include the high-level summary above (words, mistakes count,
+    // accuracy, WPM, status and remark).
 
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(titleText)}</title>
       <style>body{padding:24px;color:#111}</style></head><body>${lines.join('')}</body></html>`;
@@ -442,14 +525,14 @@ export default function TypingTutor() {
       let pendingDeletes = [];
       const flushPending = () => {
         if (!pendingDeletes.length) return;
-        const expectedHtml = pendingDeletes.map(tok => formatTokenHtml(tok ? tok.token : '', tok ? tok.kind : 'word', { exposeWhitespace: true })).join('');
+        const expectedHtml = pendingDeletes.map(tok => formatTokenHtml(tok ? tok.token : '', tok ? tok.kind : 'word', { exposeWhitespace: true })).join(' ');
         spans.push(`<span style="color:#b00;font-weight:600;margin-right:10px">∅ → ${expectedHtml}</span>`);
         pendingDeletes = [];
       };
       ops.forEach(op => {
         if (op.type === 'del') {
-          if (op.exp) pendingDeletes.push(op.exp);
-          return;
+            if (op.exp) pendingDeletes.push(op.exp);
+            return;
         }
         flushPending();
         if (op.type === 'eq') {
@@ -465,7 +548,7 @@ export default function TypingTutor() {
         }
       });
       flushPending();
-      return spans.join('');
+      return spans.join(' ');
     }
 
     if (!text) return '';
@@ -762,6 +845,18 @@ export default function TypingTutor() {
             </div>
           </div>
 
+          {/* Pass/Fail and remark */}
+          <div style={{ marginTop:10, display:'flex', gap:12, alignItems:'center' }}>
+            <div style={{ padding:'8px 10px', borderRadius:8, background: (result.pass ? '#e8fff0' : '#fff0f0'), border: '1px solid #e5e5e5' }}>
+              <div style={{ fontSize:12, color:'#666' }}>Status</div>
+              <div style={{ fontSize:16, fontWeight:700 }}>{result.pass ? 'Pass' : 'Fail'}</div>
+            </div>
+            <div style={{ padding:'8px 10px', borderRadius:8, background:'#fffaf0', border: '1px solid #f0e8d8' }}>
+              <div style={{ fontSize:12, color:'#666' }}>Remark</div>
+              <div style={{ fontSize:16, fontWeight:700 }}>{result.remark}</div>
+            </div>
+          </div>
+
           <div style={{ marginTop:12, display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             <div style={{ padding:12, borderRadius:8, background:'#eef6ff' }}>
               <div style={{ color:'#666', fontSize:13 }}>Time used</div>
@@ -793,10 +888,10 @@ export default function TypingTutor() {
             </div>
           </div>
 
-          {typed && typed.length > 0 && (
+          {result && result.typedExcerpt && result.typedExcerpt.length > 0 && (
             <div style={{ marginTop:12 }}>
               <div style={{ fontWeight:700, marginBottom:6 }}>Typed (excerpt)</div>
-              <div style={{ fontFamily:'monospace', background:'#f7f7f7', padding:12, borderRadius:8, maxHeight:220, overflow:'auto', whiteSpace:'pre-wrap' }} dangerouslySetInnerHTML={{ __html: buildSourceHtml(typed, result) }} />
+              <div style={{ fontFamily:'monospace', background:'#f7f7f7', padding:12, borderRadius:8, maxHeight:220, overflow:'auto', whiteSpace:'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere' }} dangerouslySetInnerHTML={{ __html: buildSourceHtml(result.typedExcerpt, result) }} />
             </div>
           )}
         </div>

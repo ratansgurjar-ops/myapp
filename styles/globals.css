@@ -114,11 +114,13 @@ body {
 
 /* Additional mobile compactness for question cards: reduce vertical spacing, enlarge content width */
 @media (max-width: 480px) {
-  .question-card { padding: 8px; margin-bottom: 8px; border-radius: 6px; }
+  .question-card { padding: 8px; margin-bottom: 8px; border-radius: 6px; position: relative; }
   /* make card take full width and remove extra gaps between cards */
   .question-card { width: 100%; max-width: 100%; margin-bottom: 6px !important; }
-  .question-card .qc-main { padding: 0; }
-  .question-card .qc-right { margin-left: 0; padding-top: 6px; font-size: 13px; }
+  /* Keep main content full width but reserve space for the floating reviews box */
+  .question-card .qc-main { padding: 0; margin-right: 180px; box-sizing: border-box; }
+  /* Float the reviews box to the right so it remains visible without reducing question width */
+  .question-card .qc-right { position: absolute; right: 12px; top: 12px; width: 160px; margin-left: 0; padding: 8px; background: rgba(255,255,255,0.98); border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); font-size: 13px; }
   .question-card .qc-right button { padding: 6px 8px; font-size: 13px; }
   .question-card .qc-main div[style] { /* keep question text readable */ }
   .question-card ul { margin-top: 4px; padding-left: 0; }
