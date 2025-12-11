@@ -173,38 +173,87 @@ export default function TypingTutor() {
     const typedText = typed || '';
     const charsTyped = typedText.length;
 
-    // split into 5-character units based on typed length (spaces count)
-    const chunks = [];
-    for (let i = 0; i < charsTyped; i += 5) {
-      const exp = expected.slice(i, i + 5) || '';
-      const got = typedText.slice(i, i + 5) || '';
-      chunks.push({ exp, got, idx: Math.floor(i / 5) });
-    }
+    // Compare by words instead of fixed 5-character units. This avoids cascading errors
+    // when a user misses a character and shifts the remainder. We treat any word with
+    // any mismatch (missing/extra/typo) as ONE wrong word.
+    const tokenizeWithIndices = (s) => {
+      const res = [];
+      if (!s) return res;
+      let i = 0;
+      const regex = /\S+/g;
+      let m;
+      while ((m = regex.exec(s)) !== null) {
+        res.push({ word: m[0], start: m.index, end: m.index + m[0].length });
+      }
+      return res;
+    };
 
-    // a unit is wrong if fuzzy comparison fails (ignores punctuation/case and allows small typos)
-    const wrongUnits = chunks.filter(c => (c.got && c.got.length > 0) && !compareUnit(c.exp, c.got));
-    const wrongCount = wrongUnits.length;
+    const expTokens = tokenizeWithIndices(expected);
+    const gotTokens = tokenizeWithIndices(typedText);
 
-    // total units are based on typed characters
-    const totalUnitsTyped = Math.ceil(charsTyped / 5) || 0;
+    // Align tokens using dynamic programming (edit distance) on words
+    const alignWords = (a, b) => {
+      const m = a.length;
+      const n = b.length;
+      const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+      for (let i = 0; i <= m; i++) dp[i][0] = i;
+      for (let j = 0; j <= n; j++) dp[0][j] = j;
+      for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+          dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (a[i - 1].word === b[j - 1].word ? 0 : 1));
+        }
+      }
+      // backtrack
+      let i = m, j = n;
+      const ops = [];
+      while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && dp[i][j] === dp[i - 1][j - 1] + (a[i - 1].word === b[j - 1].word ? 0 : 1)) {
+          // match or substitution
+          if (a[i - 1].word === b[j - 1].word) ops.unshift({ type: 'eq', exp: a[i - 1], got: b[j - 1] });
+          else ops.unshift({ type: 'sub', exp: a[i - 1], got: b[j - 1] });
+          i--; j--;
+        } else if (i > 0 && dp[i][j] === dp[i - 1][j] + 1) {
+          // deletion (expected word missing in typed)
+          ops.unshift({ type: 'del', exp: a[i - 1], got: null });
+          i--;
+        } else {
+          // insertion (extra typed word)
+          ops.unshift({ type: 'ins', exp: null, got: b[j - 1] });
+          j--;
+        }
+      }
+      return ops;
+    };
+
+    const ops = alignWords(expTokens, gotTokens);
+
+    // build wrongs: count substitutions, insertions, deletions as wrong (1 wrong per word)
+    const wrongWords = [];
+    ops.forEach((op, idx) => {
+      if (op.type === 'sub') wrongWords.push({ idx, exp: op.exp.word, got: op.got.word, start: op.got.start, end: op.got.end });
+      else if (op.type === 'ins') wrongWords.push({ idx, exp: '', got: op.got.word, start: op.got.start, end: op.got.end });
+      else if (op.type === 'del') wrongWords.push({ idx, exp: op.exp.word, got: '', start: op.exp.start, end: op.exp.end });
+    });
+
+    const wrongCount = wrongWords.length;
+    const totalWordsTyped = gotTokens.length;
 
     // elapsed time in seconds (use timeLimit minus remaining time)
     const elapsedSeconds = Math.max(1, (timeLimit || 60) - (timeLeft || 0));
     const minutes = elapsedSeconds / 60;
 
-    // gross speed = typed 5-char units per minute
-    const unitsTyped = totalUnitsTyped;
-    const grossWpm = minutes > 0 ? (unitsTyped / minutes) : 0;
+    // gross speed = typed words per minute
+    const grossWpm = minutes > 0 ? (totalWordsTyped / minutes) : 0;
 
-    // forgiveness: allow 5% of total typed units as free mistakes
-    const allowedMistakes = Math.floor(totalUnitsTyped * 0.05);
+    // forgiveness: allow 5% of total typed words as free mistakes
+    const allowedMistakes = Math.floor(totalWordsTyped * 0.05);
     const effectiveWrong = Math.max(0, wrongCount - allowedMistakes);
 
-    // net WPM subtracts effective wrong units per minute from gross WPM
+    // net WPM subtracts effective wrong words per minute from gross WPM
     const netWpm = Math.max(0, Math.round(grossWpm - (effectiveWrong / minutes)));
 
-    const percent = totalUnitsTyped > 0 ? Math.round(((totalUnitsTyped - effectiveWrong) / totalUnitsTyped) * 100) : 0;
-    setResult({ charsTyped, totalUnits: totalUnitsTyped, wrongCount, allowedMistakes, effectiveWrong, percent, wrongs: wrongUnits, grossWpm: Math.round(grossWpm), netWpm });
+    const percent = totalWordsTyped > 0 ? Math.round(((totalWordsTyped - effectiveWrong) / totalWordsTyped) * 100) : 0;
+    setResult({ charsTyped, totalWords: totalWordsTyped, wrongCount, allowedMistakes, effectiveWrong, percent, wrongs: wrongWords, grossWpm: Math.round(grossWpm), netWpm });
   };
 
   const exportResultPdf = () => {
@@ -212,10 +261,10 @@ export default function TypingTutor() {
     const titleText = title || 'Typing Result';
     const lines = [];
     lines.push(`<h1 style="font-family:Arial,Helvetica,sans-serif">${escapeHtml(titleText)}</h1>`);
-    lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Words (5-char units): <strong>${result.totalUnits}</strong></p>`);
-    lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Wrong units: <strong>${result.wrongCount}</strong></p>`);
+    lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Words typed: <strong>${result.totalWords || result.totalUnits || 0}</strong></p>`);
+    lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Wrong words: <strong>${result.wrongCount}</strong></p>`);
     lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Allowed mistakes (5%): <strong>${result.allowedMistakes || 0}</strong></p>`);
-    lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Effective wrong units: <strong>${result.effectiveWrong || 0}</strong></p>`);
+    lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Effective wrong words: <strong>${result.effectiveWrong || 0}</strong></p>`);
     lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Gross WPM: <strong>${result.grossWpm || 0}</strong></p>`);
     lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Net WPM: <strong>${result.netWpm || 0}</strong></p>`);
     lines.push(`<p style="font-family:Arial,Helvetica,sans-serif">Percentage: <strong>${result.percent}%</strong></p>`);
@@ -233,16 +282,40 @@ export default function TypingTutor() {
     if (typedText) {
       lines.push('<h3 style="font-family:Arial,Helvetica,sans-serif">Typed (excerpt)</h3>');
       const wrongs = result && result.wrongs ? result.wrongs : [];
-      const wmap = new Set((wrongs || []).map(w => Number(w.idx)));
+      // Build word-level excerpt: highlight wrong typed words and show expected word for substitutions
+      const tokenize = (s) => {
+        const res = [];
+        const regex = /\S+/g;
+        let m;
+        while ((m = regex.exec(s)) !== null) res.push({ word: m[0], start: m.index, end: m.index + m[0].length });
+        return res;
+      };
+      const typedTokens = tokenize(typedText);
+      const wmapByStart = {};
+      wrongs.forEach(w => { if (typeof w.start !== 'undefined' && w.start !== null) wmapByStart[w.start] = w; });
       const pieces = [];
-      for (let i = 0; i < typedText.length && i < 2000; i += 5) {
-        const chunk = typedText.slice(i, i + 5);
-        const esc = escapeHtml(chunk);
-        const idx = Math.floor(i / 5);
-        if (wmap.has(idx)) pieces.push(`<span style="color:#b00;text-decoration:line-through">${esc}</span>`);
-        else pieces.push(`<span>${esc}</span>`);
+      typedTokens.forEach(t => {
+        const w = wmapByStart[t.start];
+        const esc = escapeHtml(t.word);
+        if (w) {
+          // substitution or insertion
+          const escExp = escapeHtml(w.exp || '');
+          pieces.push(`<span style="color:#b00;text-decoration:line-through;margin-right:6px">${esc}</span><span style="color:#080;font-weight:600;margin-right:8px">→ ${escExp}</span>`);
+        } else {
+          pieces.push(`<span>${esc}</span>`);
+        }
+        // preserve following whitespace from original text
+        const wsStart = t.end; const wsEnd = typedText.indexOf((typedText[wsStart] || ' '), wsStart) >= 0 ? typedText.slice(wsStart, wsStart + 1) : ' ';
+      });
+      lines.push(`<pre style="font-family:monospace;white-space:pre-wrap;background:#f7f7f7;padding:10px;border-radius:6px">${pieces.join(' ')}</pre>`);
+      // list deletions (expected words missing in typed)
+      const deletions = (wrongs || []).filter(w => w.got === '');
+      if (deletions.length) {
+        lines.push('<h4 style="font-family:Arial,Helvetica,sans-serif">Missing words (expected but not typed)</h4>');
+        lines.push('<ul>');
+        deletions.forEach(d => lines.push(`<li style="font-family:Arial,Helvetica,sans-serif;color:#b00">${escapeHtml(d.exp)}</li>`));
+        lines.push('</ul>');
       }
-      lines.push(`<pre style="font-family:monospace;white-space:pre-wrap;background:#f7f7f7;padding:10px;border-radius:6px">${pieces.join('')}</pre>`);
     }
 
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(titleText)}</title>
@@ -507,7 +580,19 @@ export default function TypingTutor() {
 
       <div style={{ marginTop:12 }}>
         {showPreview && selectedPractice !== 'manual-create' && (
-          <div style={{ border: '1px solid #ddd', padding: 8, minHeight: 120, maxHeight: 220, overflow: 'auto', whiteSpace: 'pre-wrap' }}>{sourceText || <em>No text loaded</em>}</div>
+          <div>
+            <div style={{ border: '1px solid #ddd', padding: 8, minHeight: 120, maxHeight: 220, overflow: 'auto', whiteSpace: 'pre-wrap' }}>{sourceText || <em>No text loaded</em>}</div>
+            {/* live counts: characters, words, 5-char units */}
+            <div style={{ marginTop: 6, fontSize: 13, color: '#444' }}>
+              {(() => {
+                const s = sourceText || '';
+                const chars = s.length;
+                const words = (s.trim().length === 0) ? 0 : (s.trim().match(/\S+/g) || []).length;
+                const units = Math.ceil(chars / 5);
+                return `${words} words · ${chars} characters · ${units} units (5‑char)`;
+              })()}
+            </div>
+          </div>
         )}
 
         {/* Admin shared preview removed from here — it's available via Select Practice */}
@@ -548,12 +633,12 @@ export default function TypingTutor() {
 
           <div style={{ marginTop:12, display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             <div style={{ padding:12, borderRadius:8, background:'#fbfbff' }}>
-              <div style={{ color:'#666', fontSize:13 }}>Words (5-char)</div>
-              <div style={{ fontSize:20, fontWeight:700 }}>{result.totalUnits}</div>
+                <div style={{ color:'#666', fontSize:13 }}>Words</div>
+                  <div style={{ fontSize:20, fontWeight:700 }}>{result.totalWords || result.totalUnits || 0}</div>
             </div>
             <div style={{ padding:12, borderRadius:8, background:'#fff6f6' }}>
-              <div style={{ color:'#666', fontSize:13 }}>Wrong units</div>
-              <div style={{ fontSize:20, fontWeight:700, color:'#c33' }}>{result.wrongCount}</div>
+                  <div style={{ color:'#666', fontSize:13 }}>Wrong words</div>
+                  <div style={{ fontSize:20, fontWeight:700, color:'#c33' }}>{result.wrongCount}</div>
             </div>
             <div style={{ padding:12, borderRadius:8, background:'#fffaf0' }}>
               <div style={{ color:'#666', fontSize:13 }}>Effective wrong (after 5%)</div>
