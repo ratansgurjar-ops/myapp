@@ -1,5 +1,6 @@
 import '../styles/globals.css';
 import React, { useEffect, useState } from 'react';
+import Head from 'next/head';
 import { useRouter } from 'next/router';
 import SiteHeader from '../components/SiteHeader';
 import GlobalFeedback from '../components/GlobalFeedback';
@@ -35,14 +36,20 @@ function MyApp({ Component, pageProps }) {
   const isAdminRoute = (router && router.pathname && (router.pathname.startsWith('/admin') || router.pathname.startsWith('/ad81188')));
 
   return (
-    <div>
+    <>
+      <Head>
+        <meta name="google-adsense-account" content="ca-pub-4799680224544946" />
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4799680224544946" crossOrigin="anonymous"></script>
+      </Head>
+      <div>
       {!isAdminRoute && <SiteHeader />}
       <div style={{ position: 'fixed', right: 12, top: 12 }}>
         <button onClick={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}>{theme === 'light' ? 'Dark' : 'Light'}</button>
       </div>
       <Component {...pageProps} />
       {!isAdminRoute && <GlobalFeedback />}
-    </div>
+      </div>
+    </>
   );
 }
 

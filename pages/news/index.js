@@ -1,4 +1,5 @@
 import React from 'react';
+import FooterAd from '../../components/FooterAd';
 const News = require('../../models/news');
 
 export default function NewsArchive({ items = [], total = 0, page = 1, type = 'all' }) {
@@ -29,6 +30,7 @@ export default function NewsArchive({ items = [], total = 0, page = 1, type = 'a
         <div style={{ marginTop: 16 }}>
           <div>Showing page {page} — total {total}</div>
         </div>
+        <FooterAd />
       </div>
     </div>
   );

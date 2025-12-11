@@ -1,5 +1,6 @@
 import React from 'react';
 import Head from 'next/head';
+import FooterAd from '../../components/FooterAd';
 const News = require('../../models/news');
 
 function stripHtml(s) {
@@ -52,6 +53,7 @@ export default function NewsPage({ item }) {
       <h1>{item.title}</h1>
       {item.image && <img src={item.image} alt="" style={{ maxWidth: '100%', marginTop: 12 }} />}
       <div style={{ marginTop: 12 }} dangerouslySetInnerHTML={{ __html: item.content }} />
+      <FooterAd />
     </div>
   );
 }

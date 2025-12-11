@@ -1,5 +1,6 @@
 import React from 'react';
 import Head from 'next/head';
+import FooterAd from '../../components/FooterAd';
 
 export default function DelhiPoliceHCM() {
   return (
@@ -41,6 +42,7 @@ export default function DelhiPoliceHCM() {
       <p style={{ marginTop: 16 }}>
         Hindi: <em>Delhi Police HCM के लिए टाइपिंग अभ्यास — क्लर्क और सहायक पदों के लिए अभ्यास।</em>
       </p>
+      <FooterAd />
     </div>
   );
 }

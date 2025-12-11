@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Head from 'next/head';
 import QuestionList from '../components/QuestionList';
 import NewsTicker from '../components/NewsTicker';
+import FooterAd from '../components/FooterAd';
 
 export default function Home({ questions, total, news, categories = [], chapters = [], initialQ = '', initialCategory = '', initialChapter = '', initialPage = 1, initialLimit = 10 }) {
   const [search, setSearch] = useState('');
@@ -208,6 +209,7 @@ export default function Home({ questions, total, news, categories = [], chapters
             </div>
           )}
         </aside>
+        <FooterAd />
       </div>
     </div>
   );

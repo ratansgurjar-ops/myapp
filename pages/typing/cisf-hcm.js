@@ -1,5 +1,6 @@
 import React from 'react';
 import Head from 'next/head';
+import FooterAd from '../../components/FooterAd';
 
 export default function CISFHCM() {
   return (
@@ -42,6 +43,7 @@ export default function CISFHCM() {
       <p style={{ marginTop: 16 }}>
         Hindi: <em>CISF HCM हेतु टाइपिंग अभ्यास — Stenographer, Clerk और DEO के लिए व्यवहारिक अभ्यास।</em>
       </p>
+      <FooterAd />
     </div>
   );
 }

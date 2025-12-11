@@ -1,5 +1,6 @@
 import React from 'react';
 import Head from 'next/head';
+import FooterAd from '../../components/FooterAd';
 const Question = require('../../models/question');
 
 function stripHtml(s) {
@@ -88,6 +89,7 @@ export default function QuestionPage({ item }) {
       )}
 
       {/* Typing practice CTA removed to avoid duplication; use the dedicated Typing Tutor page */}
+      <FooterAd />
     </div>
   );
 }

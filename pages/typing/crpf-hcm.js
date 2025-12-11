@@ -1,5 +1,6 @@
 import React from 'react';
 import Head from 'next/head';
+import FooterAd from '../../components/FooterAd';
 
 export default function CRPFHCM() {
   return (
@@ -42,6 +43,7 @@ export default function CRPFHCM() {
       <p style={{ marginTop: 16 }}>
         Hindi: <em>CRPF HCM के लिए टाइपिंग अभ्यास — Stenographer, Clerk और DEO के लिए समयबद्ध अभ्यास।</em>
       </p>
+      <FooterAd />
     </div>
   );
 }
