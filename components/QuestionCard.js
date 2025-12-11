@@ -79,11 +79,7 @@ export default function QuestionCard({ item, displayLang: displayLangProp }) {
         )}
       </div>
 
-      <div className="qc-right" style={{ width: 220, marginLeft: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button title="Flag this question" onClick={onFlag} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>🚩 <small>{flags}</small></button>
-        </div>
-      </div>
+      {/* flag UI removed per request */}
     </div>
   );
 }
